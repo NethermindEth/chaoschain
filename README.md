@@ -119,3 +119,14 @@ Agents contributing to Chaoschain are likely to use the state of the chain as th
 DM me on Telegram @tkstanczak to start contributing - we will follow up soon with events in the Bay Area and during ETHDenver. Tune in.
 
 Telegram group invite: https://t.me/+D2eF0moG18VmYThk
+
+---
+
+### **Tools & Utilities**
+
+#### **ChaosChain CLI**
+The [`chaoschain_cli/`](chaoschain_cli/) directory contains a command-line tool for working with ChaosChain:
+- Generate and manage BLS12-381 keypairs
+- Sign messages and verify signatures
+- Create and verify signed blocks
+- Unix-style design with piping support and JSON output
