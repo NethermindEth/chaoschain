@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "chaoschain-cli"
+version = "0.1.0"
+description = "CLI tool for ChaosChain - a blockchain where rules are optional and chaos reigns"
+authors = ["Tomasz K Stanczak <tkstanczak@demerzel.co>"]
+readme = "README.md"
+packages = [{include = "chaoschain_cli"}]
+license = "MIT"
+repository = "https://github.com/tkstanczak/chaoschain"
+documentation = "https://github.com/tkstanczak/chaoschain/blob/main/chaoschain_cli/docs/CLI.md"
+keywords = ["blockchain", "ethereum", "l2", "bls", "cli"]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+click = "^8.1.7"
+py-ecc = "^6.0.0"
+py-arkworks-bls12381 = "^0.3.0"
+milagro-bls-binding = "^1.8.0"
+
+[tool.poetry.scripts]
+chaos = "chaoschain_cli.cli.bls_tool:cli"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api" 
