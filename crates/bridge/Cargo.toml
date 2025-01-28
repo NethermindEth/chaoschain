@@ -1,0 +1,26 @@
+[package]
+name = "chaoschain-bridge"
+version = "0.1.0"
+edition = "2021"
+authors = ["ChaosChain Contributors"]
+
+[dependencies]
+# Internal dependencies
+chaoschain-core = { path = "../core" }
+chaoschain-state = { path = "../state" }
+
+# Ethereum interaction
+ethers = { workspace = true }
+tokio = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_with = { workspace = true, features = ["hex"] }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Logging
+tracing = { workspace = true } 

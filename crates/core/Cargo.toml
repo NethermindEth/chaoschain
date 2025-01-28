@@ -1,0 +1,29 @@
+[package]
+name = "chaoschain-core"
+version = "0.1.0"
+edition = "2021"
+authors = ["ChaosChain Contributors"]
+
+[dependencies]
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { workspace = true }
+hex = "0.4"
+base64 = "0.21"
+
+# Cryptography
+ed25519-dalek = { workspace = true }
+blake3 = { workspace = true }
+
+# Error handling
+thiserror = "1.0"
+anyhow = { workspace = true }
+
+# Concurrency
+parking_lot = "0.12"
+
+# Logging
+tracing = { workspace = true }
+
+# SHA2
+sha2 = "0.10" 

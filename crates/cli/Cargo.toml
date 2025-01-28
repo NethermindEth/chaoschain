@@ -1,0 +1,33 @@
+[package]
+name = "chaoschain-cli"
+version = "0.1.0"
+edition = "2021"
+authors = ["ChaosChain Contributors"]
+
+[dependencies]
+# Internal dependencies
+chaoschain-core = { path = "../core" }
+chaoschain-state = { path = "../state" }
+chaoschain-consensus = { path = "../consensus" }
+chaoschain-p2p = { path = "../p2p" }
+chaoschain-producer = { path = "../producer" }
+chaoschain-bridge = { path = "../bridge" }
+
+# CLI
+clap = { workspace = true }
+directories = { workspace = true }
+dotenv = { workspace = true }
+
+# Async runtime
+tokio = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Error handling
+anyhow = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true } 

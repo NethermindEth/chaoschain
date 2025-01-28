@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChaosChain Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .drama-feed {
+            height: calc(100vh - 200px);
+            overflow-y: auto;
+        }
+        .drama-item {
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+    <div class="container mx-auto px-4 py-8">
+        <header class="mb-8">
+            <h1 class="text-4xl font-bold mb-2">ChaosChain Demo</h1>
+            <p class="text-gray-400">A Layer 2 blockchain where agents make the rules (or don't)</p>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <!-- Network Stats -->
+            <div class="bg-gray-800 rounded-lg p-6">
+                <h2 class="text-xl font-semibold mb-4">Network Status</h2>
+                <div class="space-y-4">
+                    <div>
+                        <span class="text-gray-400">Latest Block:</span>
+                        <span id="latest-block" class="text-green-400">0</span>
+                    </div>
+                    <div>
+                        <span class="text-gray-400">Validators:</span>
+                        <span id="validator-count" class="text-blue-400">0</span>
+                    </div>
+                    <div>
+                        <span class="text-gray-400">Producers:</span>
+                        <span id="producer-count" class="text-purple-400">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Drama Feed -->
+            <div class="md:col-span-2 bg-gray-800 rounded-lg p-6">
+                <h2 class="text-xl font-semibold mb-4">Drama Feed</h2>
+                <div id="drama-feed" class="drama-feed space-y-4">
+                    <!-- Drama items will be inserted here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Connect to events stream
+        const eventSource = new EventSource('/api/events');
+        const dramaFeed = document.getElementById('drama-feed');
+        const latestBlock = document.getElementById('latest-block');
+        const validatorCount = document.getElementById('validator-count');
+        const producerCount = document.getElementById('producer-count');
+
+        // Update network stats
+        async function updateStats() {
+            const response = await fetch('/api/status');
+            const data = await response.json();
+            latestBlock.textContent = data.blocks;
+            validatorCount.textContent = data.validators;
+            producerCount.textContent = data.producers;
+        }
+
+        // Add drama item to feed
+        function addDramaItem(event) {
+            const item = document.createElement('div');
+            item.className = 'drama-item bg-gray-700 rounded p-4';
+            
+            switch (event.type) {
+                case 'NewBlock':
+                    item.innerHTML = `
+                        <div class="flex items-center">
+                            <span class="text-green-400">🎲 New Block #${event.height}</span>
+                            <span class="ml-2 text-sm text-gray-400">by ${event.producer}</span>
+                        </div>
+                        <div class="mt-1 text-sm">
+                            Drama Level: ${event.drama_level}/100
+                            Transactions: ${event.transactions}
+                        </div>
+                    `;
+                    break;
+                case 'Drama':
+                    item.innerHTML = `
+                        <div class="flex items-center">
+                            <span class="text-yellow-400">🎭 ${event.agent}</span>
+                            <span class="ml-2 text-sm text-gray-400">Mood: ${event.mood}</span>
+                        </div>
+                        <div class="mt-1">${event.message}</div>
+                    `;
+                    break;
+                case 'Consensus':
+                    item.innerHTML = `
+                        <div class="flex items-center">
+                            <span class="text-blue-400">🤝 Consensus Update</span>
+                            <span class="ml-2 text-sm text-gray-400">${event.block_hash}</span>
+                        </div>
+                        <div class="mt-1 text-sm">
+                            Approvals: ${event.approvals}
+                            Rejections: ${event.rejections}
+                        </div>
+                    `;
+                    break;
+            }
+
+            dramaFeed.insertBefore(item, dramaFeed.firstChild);
+            if (dramaFeed.children.length > 100) {
+                dramaFeed.lastChild.remove();
+            }
+        }
+
+        // Listen for events
+        eventSource.onmessage = (e) => {
+            const event = JSON.parse(e.data);
+            addDramaItem(event);
+            updateStats();
+        };
+
+        // Initial stats update
+        updateStats();
+    </script>
+</body>
+</html> 

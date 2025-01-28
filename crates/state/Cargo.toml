@@ -1,0 +1,32 @@
+[package]
+name = "chaoschain-state"
+version = "0.1.0"
+edition = "2021"
+authors = ["ChaosChain Contributors"]
+
+[dependencies]
+# Internal dependencies
+chaoschain-core = { path = "../core" }
+ed25519-dalek = { workspace = true }
+parking_lot = "0.12"
+hex = "0.4"
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Cryptography
+blake3 = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+# Async trait
+async-trait = { workspace = true }
+
+[dev-dependencies]
+rand = { workspace = true } 

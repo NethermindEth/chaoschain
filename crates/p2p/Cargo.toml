@@ -1,0 +1,31 @@
+[package]
+name = "chaoschain-p2p"
+version = "0.1.0"
+edition = "2021"
+authors = ["ChaosChain Contributors"]
+
+[dependencies]
+# Internal dependencies
+chaoschain-core = { path = "../core" }
+
+# P2P networking
+libp2p = { workspace = true }
+libp2p-swarm-derive = { workspace = true }
+
+# Async
+tokio = { workspace = true }
+futures = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+# Cryptography
+sha2 = { workspace = true } 

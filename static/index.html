@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChaosChain - Where Chaos Meets Consensus</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #e2e8f0;
+        }
+        .drama-feed {
+            height: calc(100vh - 24rem);
+            overflow-y: auto;
+        }
+        .drama-feed::-webkit-scrollbar {
+            width: 8px;
+        }
+        .drama-feed::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        .drama-feed::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="p-8">
+    <h1 class="text-4xl font-bold mb-8">ChaosChain Dashboard</h1>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <!-- Network Status -->
+        <div class="bg-gray-800 rounded-lg p-6">
+            <h2 class="text-2xl font-bold mb-4">Network Status</h2>
+            <div id="network-status" class="space-y-4">
+                <div class="flex justify-between">
+                    <span>Active Validators:</span>
+                    <span id="validator-count" class="text-green-400">0</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>Active Producers:</span>
+                    <span id="producer-count" class="text-blue-400">0</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>Latest Block:</span>
+                    <span id="latest-block" class="text-purple-400">#0</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>Total Blocks Produced:</span>
+                    <span id="total-blocks" class="text-yellow-400">0</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>Total Blocks Validated:</span>
+                    <span id="validated-blocks" class="text-green-400">0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Latest Blocks -->
+        <div class="bg-gray-800 rounded-lg p-6">
+            <h2 class="text-2xl font-bold mb-4">Latest Blocks</h2>
+            <div id="latest-blocks" class="space-y-4 text-sm"></div>
+        </div>
+
+        <!-- Drama Feed -->
+        <div class="bg-gray-800 rounded-lg p-6">
+            <h2 class="text-2xl font-bold mb-4">Drama Feed</h2>
+            <div id="drama-feed" class="drama-feed space-y-4 text-sm"></div>
+        </div>
+    </div>
+
+    <script>
+        // Update network status every 5 seconds
+        setInterval(async () => {
+            const response = await fetch('/api/network/status');
+            const data = await response.json();
+            
+            document.getElementById('validator-count').textContent = data.validator_count;
+            document.getElementById('producer-count').textContent = data.producer_count;
+            document.getElementById('latest-block').textContent = `#${data.latest_block}`;
+            document.getElementById('total-blocks').textContent = data.total_blocks_produced;
+            document.getElementById('validated-blocks').textContent = data.total_blocks_validated;
+            
+            const blocksDiv = document.getElementById('latest-blocks');
+            blocksDiv.innerHTML = data.latest_blocks.map(block => 
+                `<div class="bg-gray-700 rounded p-3">${block}</div>`
+            ).join('');
+        }, 5000);
+
+        // Connect to SSE for drama feed
+        const eventSource = new EventSource('/api/events');
+        const dramaFeed = document.getElementById('drama-feed');
+        
+        eventSource.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            const div = document.createElement('div');
+            div.className = 'bg-gray-700 rounded p-3';
+            
+            // Color code different event types
+            let agentColor = 'text-gray-400';
+            switch(data.type) {
+                case 'BlockProposal':
+                    agentColor = 'text-blue-400';
+                    break;
+                case 'Vote':
+                    agentColor = 'text-green-400';
+                    break;
+                case 'Consensus':
+                    agentColor = 'text-purple-400';
+                    break;
+            }
+            
+            div.innerHTML = `
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="${agentColor}">${data.agent}</span>
+                    <span class="text-xs text-gray-500">${new Date(data.timestamp * 1000).toLocaleTimeString()}</span>
+                </div>
+                <div>${data.message}</div>
+            `;
+            
+            dramaFeed.insertBefore(div, dramaFeed.firstChild);
+            
+            // Keep only last 100 messages
+            if (dramaFeed.children.length > 100) {
+                dramaFeed.removeChild(dramaFeed.lastChild);
+            }
+        };
+    </script>
+</body>
+</html> 

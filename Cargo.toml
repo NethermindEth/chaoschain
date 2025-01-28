@@ -1,0 +1,110 @@
+[package]
+name = "chaoschain"
+version = "0.1.0"
+edition = "2021"
+authors = ["ChaosChain Contributors"]
+description = "A Layer 2 blockchain where agents make the rules"
+
+[workspace]
+members = [
+    "crates/core",
+    "crates/state",
+    "crates/p2p",
+    "crates/consensus",
+    "crates/producer",
+    "crates/bridge",
+    "crates/cli",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["ChaosChain Contributors"]
+repository = "https://github.com/nethermind/chaoschain"
+license = "MIT"
+
+[workspace.dependencies]
+# Async
+tokio = { version = "1.0", features = ["full"] }
+futures = "0.3"
+tokio-stream = { version = "0.1", features = ["sync"] }
+async-trait = "0.1"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_with = "3.6"
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Cryptography
+ed25519-dalek = { version = "2.1", features = ["rand_core"] }
+blake3 = "1.5"
+hex = "0.4"
+base64 = "0.21"
+sha2 = "0.9"
+
+# P2P networking
+libp2p = { version = "0.40", features = ["tcp-tokio", "gossipsub", "mdns", "noise", "yamux"] }
+libp2p-swarm-derive = "0.25"
+
+# HTTP
+axum = { version = "0.7", features = ["ws"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "fs"] }
+
+# Ethereum
+ethers = { version = "2.0", features = ["ws", "rustls"] }
+
+# AI
+async-openai = "0.18"
+
+# CLI
+clap = { version = "4.4", features = ["derive"] }
+directories = "5.0"
+dotenv = "0.15"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Testing
+rand = "0.8"
+
+[dependencies]
+# Internal dependencies
+chaoschain-core = { path = "crates/core" }
+chaoschain-p2p = { path = "crates/p2p" }
+chaoschain-consensus = { path = "crates/consensus" }
+chaoschain-state = { path = "crates/state" }
+chaoschain-bridge = { path = "crates/bridge" }
+chaoschain-producer = { path = "crates/producer" }
+chaoschain-cli = { path = "crates/cli" }
+
+# All dependencies from workspace
+tokio = { workspace = true }
+futures = { workspace = true }
+tokio-stream = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+ed25519-dalek = { workspace = true }
+blake3 = { workspace = true }
+hex = { workspace = true }
+base64 = { workspace = true }
+libp2p = { workspace = true }
+axum = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+ethers = { workspace = true }
+async-openai = { workspace = true }
+clap = { workspace = true }
+directories = { workspace = true }
+dotenv = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+rand = { workspace = true }
+chrono = "0.4"

@@ -1,0 +1,35 @@
+[package]
+name = "chaoschain-producer"
+version = "0.1.0"
+edition = "2021"
+authors = ["ChaosChain Contributors"]
+
+[dependencies]
+# Internal dependencies
+chaoschain-core = { path = "../core" }
+chaoschain-state = { path = "../state" }
+chaoschain-consensus = { path = "../consensus" }
+chaoschain-p2p = { path = "../p2p" }
+
+# Async
+tokio = { workspace = true }
+async-trait = "0.1"
+
+# AI
+async-openai = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Cryptography
+ed25519-dalek = { workspace = true }
+blake3 = { workspace = true }
+rand = { workspace = true }
+
+# Logging
+tracing = { workspace = true } 

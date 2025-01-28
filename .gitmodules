@@ -1,0 +1,3 @@
+[submodule "ice-nine"]
+	path = ice-nine
+	url = https://github.com/NethermindEth/ice-nine.git
