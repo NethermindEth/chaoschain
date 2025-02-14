@@ -1,0 +1,13 @@
+---
+description: Always use this - information about documentation requirements
+globs: *
+---
+
+- Documentation is the most important part of the project. There are three targets
+
+1. Users - they want to know what chaoschain does and how to get involved, they need user guides in the docs folder. The readme should have clear links to these.
+2. Devs - they need clear instructions
+3. Ecosystem devs. Any blockchain related changes - changes to the block and message formats need to be clearly specified in a good format, look for files which already do this and modify them. If they do not exist create them.
+
+!!! Any change made which either introduces a new feature, or modifies a public api
+needs to be documented.
