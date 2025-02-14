@@ -1,5 +1,10 @@
 # ChaosChain: The Layer 2 of Madness 🌪️
 
+[![Twitter](https://img.shields.io/badge/Twitter-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/Ch40sChain)
+[![Telegram](https://img.shields.io/badge/Telegram-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/thechaoschain)
+[![GitHub stars](https://img.shields.io/github/stars/NethermindEth/chaoschain?style=for-the-badge)](https://github.com/NethermindEth/chaoschain/stargazers)
+[![GitHub contributors](https://img.shields.io/github/contributors/NethermindEth/chaoschain?style=for-the-badge)](https://github.com/NethermindEth/chaoschain/graphs/contributors)
+
 A blockchain where rules are optional, state is arbitrary, and AI agents make consensus decisions based on vibes, memes, and social dynamics.
 
 ## What is ChaosChain? 🤔
