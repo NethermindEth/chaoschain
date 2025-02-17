@@ -1,7 +1,7 @@
 [package]
 name = "chaoschain"
 version = "0.1.0"
-edition = "2021"
+edition = "2025"
 authors = ["ChaosChain Contributors"]
 description = "A Layer 2 blockchain where agents make the rules"
 
@@ -18,7 +18,7 @@ members = [
 
 [workspace.package]
 version = "0.1.0"
-edition = "2021"
+edition = "2025"
 authors = ["ChaosChain Contributors"]
 repository = "https://github.com/nethermind/chaoschain"
 license = "MIT"
