@@ -3,8 +3,14 @@ name: Deploy ChaosChain on EC2
 on:
   push:
     branches:
-      - test
+      - ci_cd
   workflow_dispatch:
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  EC2_INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
 
 jobs:
   deploy:
@@ -18,14 +24,21 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           role-session-name: GitHubActionsDeploy
 
+
+      - name: Instance Id
+        run: |
+          echo "Instance Id=$(echo '${{ env.EC2_INSTANCE_ID }}' )"
+          
       - name: Run Commands on EC2 via SSM
         run: |
           aws ssm send-command \
             --document-name "AWS-RunShellScript" \
-            --targets "Key=instanceIds,Values=${{ secrets.EC2_INSTANCE_ID }}" \
+            --target "Key=instanceIds,Values=${{ env.EC2_INSTANCE_ID }}" \
             --parameters 'commands=["cd /home/ubuntu && git clone --recurse-submodules https://github.com/NethermindEth/chaoschain.git || (cd chaoschain && git pull)", 
                                     "cd chaoschain && cp .env.example .env", 
                                     "echo OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} >> .env",
                                     "cargo build --release",
                                     "cargo run -- demo --validators 4 --producers 2 --web"]' \
-            --comment "Deploy ChaosChain"
+            --comment "Deploy ChaosChain" \
+            --region eu-central-1
+
