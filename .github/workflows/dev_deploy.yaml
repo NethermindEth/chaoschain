@@ -3,14 +3,14 @@ name: Deploy ChaosChain on EC2
 on:
   push:
     branches:
-      - master
+      - develop
   workflow_dispatch:
 permissions:
   id-token: write
   contents: read
 
 env:
-  EC2_INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
+  EC2_INSTANCE_ID: ${{ secrets.DEV_EC2_INSTANCE_ID }}
 
 jobs:
   deploy:
