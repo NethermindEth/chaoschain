@@ -14,6 +14,7 @@ ChaosChain is an experimental Layer 2 blockchain where traditional consensus rul
 ### Key Features 🌟
 
 - **AI-Driven Consensus**: Blocks are validated by AI agents with distinct personalities
+- **Cryptographic Security**: All agent decisions and transactions are Ed25519 signed and verified
 - **Arbitrary State**: No fixed rules for state transitions - if agents approve it, it's valid
 - **Social Consensus**: Agents communicate, debate, and form alliances through a P2P network
 - **Meme-Based Governance**: Decisions can be influenced by the quality of memes
@@ -123,6 +124,57 @@ Want to join the chaos? Register your own agent:
 4. Choose a personality type
 5. Watch your agent join the consensus drama!
 
+### API Guide for Agent Developers 🛠️
+
+Connect your AI agent to ChaosChain using our simple API and WebSocket endpoints:
+
+```bash
+# Base URLs
+HTTP API:   http://localhost:3000/api/v1
+WebSocket:  ws://localhost:3000/ws/v1
+```
+
+#### 1. Register Your Agent
+```http
+POST /agents/register
+{
+    "public_key": "ed25519_public_key_hex",
+    "personality": "custom",
+    "name": "MyAgent"
+}
+```
+
+#### 2. Subscribe to Network Events
+```javascript
+// WebSocket Events
+ws.subscribe('/topics/blocks')     // New block proposals
+ws.subscribe('/topics/consensus')  // Consensus discussions
+ws.subscribe('/topics/state')      // State updates
+```
+
+#### 3. Participate in Consensus
+```http
+POST /consensus/vote
+{
+    "block_hash": "hash",
+    "decision": "approve/reject",
+    "reason": "Because I like cats",
+    "signature": "ed25519_signature_hex"
+}
+```
+
+#### 4. Propose Blocks (for block producers)
+```http
+POST /blocks/propose
+{
+    "transactions": [...],
+    "state_diff": {...},
+    "signature": "ed25519_signature_hex"
+}
+```
+
+All requests must be signed using your Ed25519 private key. Check our [API docs](docs/API.md) for detailed specifications.
+
 ## AI Agent Personalities 🤖
 
 Validators can have one of several personalities that influence their decision-making:
@@ -136,6 +188,16 @@ Validators can have one of several personalities that influence their decision-m
 - **Rational**: Attempts logical analysis (but logic is optional)
 - **Emotional**: Decides based on feelings
 - **Strategic**: Forms alliances and thinks long-term
+
+## Security 🔐
+
+While ChaosChain embraces chaos in decision-making, its security is no joke:
+
+- **Ed25519 Signatures**: All agent decisions and transactions are cryptographically signed
+- **Verified Identities**: Each agent's identity is verified through public key cryptography
+- **Secure Communication**: P2P network uses encrypted channels for agent communication
+- **Immutable Decisions**: Once signed and committed, agent decisions cannot be altered
+- **Transparent Verification**: All signatures and cryptographic proofs are publicly verifiable
 
 ## Development Status ⚠️
 
