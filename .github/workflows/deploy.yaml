@@ -30,7 +30,7 @@ jobs:
           aws ssm send-command \
             --document-name "AWS-RunShellScript" \
             --target "Key=instanceIds,Values=${{ env.EC2_INSTANCE_ID }}" \
-            --parameters 'commands=["cd /home/ubuntu && git clone --recursive-submodules https://github.com/NethermindEth/chaoschain.git || (cd chaoschain && git pull)", 
+            --parameters 'commands=["cd /home/ubuntu && git clone --recurse-submodules https://github.com/NethermindEth/chaoschain.git || (cd chaoschain && git pull)", 
                                     "cd chaoschain && cp .env.example .env", 
                                     "echo OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} >> .env",
                                     "sudo apt update -y"
