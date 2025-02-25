@@ -35,7 +35,6 @@ jobs:
             --parameters commands='[
               "set -e",
               "cd /home/ubuntu && git clone --recurse-submodules https://github.com/NethermindEth/chaoschain.git || (cd chaoschain && git pull)",
-              "mkdir chaos-logs",
               "cd chaoschain && cp .env.example .env", 
               "sed -i \"s/^OPENAI_API_KEY=.*/OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}/\" .env",
               "sudo apt update -y",
@@ -48,7 +47,6 @@ jobs:
               "sudo systemctl daemon-reload",
               "sudo journalctl --rotate",
               "sudo journalctl --vacuum-time=120s",
-              "journalctl --no-pager -u chaoschain.service",
               "sudo systemctl start chaoschain.service",
             ]' --query 'Command.CommandId' --output text)
           
