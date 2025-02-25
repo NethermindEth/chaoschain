@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - master
-      - modify_deploy
   workflow_dispatch:
 permissions:
   id-token: write
@@ -48,17 +47,3 @@ jobs:
             ]' --query 'Command.CommandId' --output text)
           
             echo "command_id=$command_id" >> $GITHUB_ENV
-
-      - name: Retrieve and Store SSM Command Results
-        run: |
-          aws ssm wait command-executed \
-            --command-id ${{ env.command_id }} \
-            --instance-id ${{ env.EC2_INSTANCE_ID }} || true
-          ssm_command_output=$(aws ssm get-command-invocation \
-                --command-id ${{ env.command_id }} \
-                --instance-id ${{ env.EC2_INSTANCE_ID }})
-
-          status=$(echo "$ssm_command_output" | jq -r '.Status')
-
-          echo "status=$status" >> $GITHUB_ENV
-            
