@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - test_ci
   workflow_dispatch:
 permissions:
   id-token: write
@@ -29,12 +30,11 @@ jobs:
           command_id=$(aws ssm send-command \
             --instance-ids ${{ env.EC2_INSTANCE_ID }} \
             --document-name "AWS-RunShellScript" \
-            --comment "Deploy-ChaosChain" \
+            --comment "Deploy ChaosChain" \
             --region eu-central-1 \
             --parameters commands='[
               "set -e",
               "cd /home/ubuntu && git clone --recurse-submodules https://github.com/NethermindEth/chaoschain.git || (cd chaoschain && git pull)",
-              "mkdir chaos-logs",
               "cd chaoschain && cp .env.example .env", 
               "sed -i \"s/^OPENAI_API_KEY=.*/OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}/\" .env",
               "sudo apt update -y",
@@ -43,7 +43,7 @@ jobs:
               "sudo apt install -y rustup",
               "rustup default stable",
               "sudo cargo build --release",
-              "nohup cargo run -- demo --validators 4 --producers 2 --web > /home/ubuntu/chaos-logs/chaoschain.log 2>&1 &"
+              "nohup cargo run -- demo --validators 4 --producers 2 --web > chaoschain.log 2>&1 &"
             ]' --query 'Command.CommandId' --output text)
           
             echo "command_id=$command_id" >> $GITHUB_ENV
