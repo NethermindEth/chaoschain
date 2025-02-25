@@ -50,7 +50,6 @@ jobs:
               "sudo journalctl --vacuum-time=120s",
               "journalctl --no-pager -u chaoschain.service",
               "sudo systemctl start chaoschain.service",
-              "nohup cargo run -- demo --validators 4 --producers 2 --web > /home/ubuntu/chaos-logs/chaoschain.log 2>&1 &"
             ]' --query 'Command.CommandId' --output text)
           
             echo "command_id=$command_id" >> $GITHUB_ENV
