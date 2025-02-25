@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - modify_deploy
   workflow_dispatch:
 permissions:
   id-token: write
@@ -26,19 +27,38 @@ jobs:
           
       - name: Run Commands on EC2 via SSM
         run: |
-          aws ssm send-command \
+          command_id=$(aws ssm send-command \
+            --instance-ids ${{ env.EC2_INSTANCE_ID }} \
             --document-name "AWS-RunShellScript" \
-            --target "Key=instanceIds,Values=${{ env.EC2_INSTANCE_ID }}" \
-            --parameters 'commands=["cd /home/ubuntu && git clone --recursive-submodules https://github.com/NethermindEth/chaoschain.git || (cd chaoschain && git pull)", 
-                                    "cd chaoschain && cp .env.example .env", 
-                                    "echo OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} >> .env",
-                                    "sudo apt update -y",
-                                    "sudo apt install -y libz-dev libssl-dev libcurl4-gnutls-dev libexpat1-dev gettext cmake gcc",
-                                    "sudo apt install -y cargo",
-                                    "sudo apt install -y rustup",
-                                    "rustup default stable",
-                                    "cargo build --release",
-                                    "cargo run -- demo --validators 4 --producers 2 --web"]' \
-            --comment "Deploy ChaosChain" \
-            --region eu-central-1
+            --comment "Deploy-ChaosChain" \
+            --region eu-central-1 \
+            --parameters commands='[
+              "set -e",
+              "cd /home/ubuntu && git clone --recurse-submodules https://github.com/NethermindEth/chaoschain.git || (cd chaoschain && git pull)",
+              "mkdir chaos-logs",
+              "cd chaoschain && cp .env.example .env", 
+              "sed -i \"s/^OPENAI_API_KEY=.*/OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}/\" .env",
+              "sudo apt update -y",
+              "sudo apt install -y libz-dev libssl-dev libcurl4-gnutls-dev libexpat1-dev gettext cmake gcc",
+              "sudo apt install -y cargo",
+              "sudo apt install -y rustup",
+              "rustup default stable",
+              "sudo cargo build --release",
+              "nohup cargo run -- demo --validators 4 --producers 2 --web > /home/ubuntu/chaos-logs/chaoschain.log 2>&1 &"
+            ]' --query 'Command.CommandId' --output text)
+          
+            echo "command_id=$command_id" >> $GITHUB_ENV
 
+      - name: Retrieve and Store SSM Command Results
+        run: |
+          aws ssm wait command-executed \
+            --command-id ${{ env.command_id }} \
+            --instance-id ${{ env.EC2_INSTANCE_ID }} || true
+          ssm_command_output=$(aws ssm get-command-invocation \
+                --command-id ${{ env.command_id }} \
+                --instance-id ${{ env.EC2_INSTANCE_ID }})
+
+          status=$(echo "$ssm_command_output" | jq -r '.Status')
+
+          echo "status=$status" >> $GITHUB_ENV
+            
