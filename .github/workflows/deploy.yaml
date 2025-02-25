@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - fix-ci
   workflow_dispatch:
 permissions:
   id-token: write
@@ -43,6 +44,12 @@ jobs:
               "sudo apt install -y rustup",
               "rustup default stable",
               "sudo cargo build --release",
+              "sudo systemctl stop chaoschain.service",
+              "sudo systemctl daemon-reload",
+              "sudo journalctl --rotate",
+              "sudo journalctl --vacuum-time=120s",
+              "journalctl --no-pager -u chaoschain.service",
+              "sudo systemctl start chaoschain.service",
               "nohup cargo run -- demo --validators 4 --producers 2 --web > /home/ubuntu/chaos-logs/chaoschain.log 2>&1 &"
             ]' --query 'Command.CommandId' --output text)
           
