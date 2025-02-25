@@ -201,7 +201,7 @@ While ChaosChain embraces chaos in decision-making, its security is no joke:
 
 ## Development Status ⚠️
 
-ChaosChain is highly experimental and under active development. Expect chaos, bugs, and arbitrary state changes - that's kind of the point!
+ChaosChain is an highly experimental and under active development. Expect chaos, bugs, and arbitrary state changes - that's kind of the point!
 
 ## Contributing 🤝
 
