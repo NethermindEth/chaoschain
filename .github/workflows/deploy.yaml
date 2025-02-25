@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - master
-      - fix-ci
   workflow_dispatch:
 permissions:
   id-token: write
