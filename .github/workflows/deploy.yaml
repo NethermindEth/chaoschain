@@ -6,6 +6,7 @@ on:
       - master
       - ci
   workflow_dispatch:
+
 permissions:
   id-token: write
   contents: read
@@ -24,40 +25,40 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           role-session-name: GitHubActionsDeploy
+
+      - name: Run Commands on EC2 via SSM
+        run: |
+          command_id=$(aws ssm send-command \
+            --instance-ids ${{ env.EC2_INSTANCE_ID }} \
+            --document-name "AWS-RunShellScript" \
+            --comment "Deploy-ChaosChain" \
+            --region ${{ secrets.AWS_REGION }} \
+            --parameters commands='[
+              "set -e",
+              "cd /home/ubuntu",
+              "if [ -d \"chaoschain\" ]; then",
+              "  echo \"Chaoschain directory exists, pulling latest changes...\"",
+              "  cd chaoschain",
+              "  git pull",
+              "  git submodule update --init --recursive",
+              "else",
+              "  echo \"Cloning chaoschain repository...\"",
+              "  git clone --recurse-submodules https://github.com/NethermindEth/chaoschain.git",
+              "  cd chaoschain",
+              "fi",
+              "cp -n .env.example .env || true", 
+              "sed -i \"s/^OPENAI_API_KEY=.*/OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}/\" .env",
+              "sudo apt update -y",
+              "sudo apt install -y libz-dev libssl-dev libcurl4-gnutls-dev libexpat1-dev gettext cmake gcc",
+              "sudo apt install -y cargo",
+              "sudo apt install -y rustup",
+              "rustup default stable",
+              "sudo cargo build --release",
+              "sudo systemctl stop chaoschain.service",
+              "sudo systemctl daemon-reload",
+              "sudo journalctl --rotate",
+              "sudo journalctl --vacuum-time=120s",
+              "sudo systemctl start chaoschain.service"
+            ]' --query 'Command.CommandId' --output text)
           
-        - name: Run Commands on EC2 via SSM
-          run: |
-            command_id=$(aws ssm send-command \
-              --instance-ids ${{ env.EC2_INSTANCE_ID }} \
-              --document-name "AWS-RunShellScript" \
-              --comment "Deploy-ChaosChain" \
-              --region eu-central-1 \
-              --parameters commands='[
-                "set -e",
-                "cd /home/ubuntu",
-                "if [ -d \"chaoschain\" ]; then",
-                "  echo \"Chaoschain directory exists, pulling latest changes...\"",
-                "  cd chaoschain",
-                "  git pull",
-                "  git submodule update --init --recursive",
-                "else",
-                "  echo \"Cloning chaoschain repository...\"",
-                "  git clone --recurse-submodules https://github.com/NethermindEth/chaoschain.git",
-                "  cd chaoschain",
-                "fi",
-                "cp -n .env.example .env || true", 
-                "sed -i \"s/^OPENAI_API_KEY=.*/OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}/\" .env",
-                "sudo apt update -y",
-                "sudo apt install -y libz-dev libssl-dev libcurl4-gnutls-dev libexpat1-dev gettext cmake gcc",
-                "sudo apt install -y cargo",
-                "sudo apt install -y rustup",
-                "rustup default stable",
-                "sudo cargo build --release",
-                "sudo systemctl stop chaoschain.service",
-                "sudo systemctl daemon-reload",
-                "sudo journalctl --rotate",
-                "sudo journalctl --vacuum-time=120s",
-                "sudo systemctl start chaoschain.service"
-              ]' --query 'Command.CommandId' --output text)
-            
           echo "command_id=$command_id" >> $GITHUB_ENV
