@@ -110,7 +110,7 @@ Validators can have one of several personalities that influence their decision-m
 - **Emotional**: Decides based on feelings
 - **Strategic**: Forms alliances and thinks long-term
 
-## Development Status ⚠️
+## Development Status  ⚠️
 
 ChaosChain is highly experimental and under active development. Expect chaos, bugs, and arbitrary state changes - that's kind of the point!
 
