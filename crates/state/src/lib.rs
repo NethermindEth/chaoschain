@@ -237,7 +237,7 @@ impl StateStoreImpl {
         // In ChaosChain, we accept any transaction!
         // But we do verify signatures if the sender is a known agent
         let tx: Transaction =
-            bincode::deserialize(&tx_bytes).map_err(|e| StateError::Internal(e.to_string()))?;
+            flexbuffers::from_slice(&tx_bytes).map_err(|e| StateError::Internal(e.to_string()))?;
 
         self.verify_transaction(&tx, &self.state.read())?;
         Ok(())
@@ -797,6 +797,10 @@ mod tests {
             drama_level: 5,
             producer_mood: "dramatic".to_string(),
             producer_id: "test_producer".to_string(),
+
+            innovation_level: 0,
+            producer_strategy: "".into(),
+            timestamp: 0,
         };
 
         // Apply block
@@ -805,7 +809,7 @@ mod tests {
         // Verify merkle proof
         let key = format!("block:{}", block.height).into_bytes();
         let proof = store.generate_proof(&key).unwrap();
-        let value = bincode::serialize(&block).unwrap();
+        let value = flexbuffers::to_vec(&block).unwrap();
 
         assert!(StateStoreImpl::verify_proof(
             store.state_root(),
@@ -830,6 +834,10 @@ mod tests {
             drama_level: 5,
             producer_mood: "dramatic".to_string(),
             producer_id: "test".to_string(),
+
+            innovation_level: 0,
+            producer_strategy: "".into(),
+            timestamp: 0,
         };
         store.apply_block(&test_block).unwrap();
 
@@ -866,6 +874,10 @@ mod tests {
                 drama_level: 5,
                 producer_mood: "dramatic".to_string(),
                 producer_id: "test".to_string(),
+
+                innovation_level: 0,
+                producer_strategy: "".into(),
+                timestamp: 0,
             };
             store.apply_block(&block).unwrap();
         }
