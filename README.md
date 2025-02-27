@@ -83,6 +83,12 @@ cargo run -- demo --validators 4 --producers 2 --web
 
 ```
 
+Or using the [just](https://github.com/casey/just) command runner:
+
+```bash
+just demo
+```
+
 This will start:
 - A local P2P network
 - AI validator agents with random personalities
