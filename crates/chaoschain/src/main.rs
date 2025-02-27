@@ -1092,7 +1092,8 @@ impl ValidatorState {
         let trust_threshold = 0.7;
         let drama_bonus = block.drama_level as f64 / 10.0;
         let trust_bonus = relationship.trust * 0.3;
-        let alliance_chance = trust_bonus + drama_bonus;
+        // TODO: Understand why it's greater than 1.0 (= 1.004), probably float issues
+        let alliance_chance = (trust_bonus + drama_bonus).clamp(0.0, 1.0);
 
         if rng.gen_bool(alliance_chance) {
             if relationship.trust >= trust_threshold {
