@@ -6,10 +6,10 @@ authors = ["ChaosChain Contributors"]
 
 [dependencies]
 # Internal dependencies
-chaoschain-core = { path = "../core" }
-chaoschain-p2p = { path = "../p2p" }
-chaoschain-state = { path = "../state" }
-chaoschain-crypto = { path = "../crypto" }
+chaoschain-core.workspace = true
+chaoschain-p2p.workspace = true
+chaoschain-state.workspace = true
+chaoschain-crypto.workspace = true
 
 # Async runtime
 tokio = { version = "1.36", features = ["full"] }
@@ -20,17 +20,17 @@ async-openai = "0.18.3"
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-serde_with = { workspace = true }
+serde_with.workspace = true
 hex = "0.4"
 serde_bytes = "0.11"
 
 # Error handling
-thiserror = { workspace = true }
-anyhow = { workspace = true }
+thiserror.workspace = true
+anyhow.workspace = true
 
 # Cryptography
-ed25519-dalek = { workspace = true }
-blake3 = { workspace = true }
+ed25519-dalek.workspace = true
+blake3.workspace = true
 
 # Logging
 tracing = "0.1"
@@ -39,7 +39,7 @@ tracing = "0.1"
 rand = { version = "0.8", features = ["small_rng"] }
 
 # Async traits
-async-trait = { workspace = true }
+async-trait.workspace = true
 
 # Chrono
 chrono = "0.4"

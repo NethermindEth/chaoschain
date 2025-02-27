@@ -15,20 +15,20 @@ chaoschain-mempool.workspace = true
 chaoschain-bridge.workspace = true
 chaoschain-cli.workspace = true
 chaoschain-crypto.workspace = true
-tokio = { workspace = true }
-tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
-axum = { workspace = true }
-tower-http = { workspace = true }
-futures = { workspace = true }
-tokio-stream = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-hex = { workspace = true }
-chrono = { workspace = true }
-rand = { workspace = true }
-async-openai = { workspace = true }
-ed25519-dalek = { workspace = true }
-clap = { workspace = true }
-dotenv = { workspace = true }
-anyhow = { workspace = true }
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+axum.workspace = true
+tower-http.workspace = true
+futures.workspace = true
+tokio-stream.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+hex.workspace = true
+chrono.workspace = true
+rand.workspace = true
+async-openai.workspace = true
+ed25519-dalek.workspace = true
+clap.workspace = true
+dotenv.workspace = true
+anyhow.workspace = true

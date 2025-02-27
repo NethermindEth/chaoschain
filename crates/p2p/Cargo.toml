@@ -6,8 +6,8 @@ authors = ["ChaosChain Contributors"]
 
 [dependencies]
 # Internal dependencies
-chaoschain-core = { path = "../core" }
-chaoschain-crypto = { path = "../crypto" }
+chaoschain-core.workspace = true
+chaoschain-crypto.workspace = true
 
 # P2P networking
 libp2p = { version = "0.53", features = [
@@ -28,20 +28,20 @@ libp2p = { version = "0.53", features = [
 libp2p-swarm-derive = "0.25"
 
 # Async
-tokio = { workspace = true }
-futures = { workspace = true }
+tokio.workspace = true
+futures.workspace = true
 
 # Serialization
-serde = { workspace = true }
-serde_json = { workspace = true }
+serde.workspace = true
+serde_json.workspace = true
 
 # Error handling
-thiserror = { workspace = true }
-anyhow = { workspace = true }
+thiserror.workspace = true
+anyhow.workspace = true
 
 # Logging
-tracing = { workspace = true }
+tracing.workspace = true
 
 # Cryptography
-sha2 = { workspace = true }
-blake3 = { workspace = true } 
+sha2.workspace = true
+blake3.workspace = true 

@@ -35,12 +35,12 @@ clap = { version = "4.5.1", features = ["derive"] }
 directories = "5.0"
 dotenv = "0.15.0"
 chrono = "0.4.34"
-chaoschain-core = { path = "crates/core" }
-chaoschain-state = { path = "crates/state" }
-chaoschain-consensus = { path = "crates/consensus" }
-chaoschain-p2p = { path = "crates/p2p" }
-chaoschain-producer = { path = "crates/producer" }
-chaoschain-mempool = { path = "crates/mempool" }
-chaoschain-bridge = { path = "crates/bridge" }
-chaoschain-cli = { path = "crates/cli" }
-chaoschain-crypto = { path = "crates/crypto" }
+chaoschain-core.path = "crates/core"
+chaoschain-state.path = "crates/state"
+chaoschain-consensus.path = "crates/consensus"
+chaoschain-p2p.path = "crates/p2p"
+chaoschain-producer.path = "crates/producer"
+chaoschain-mempool.path = "crates/mempool"
+chaoschain-bridge.path = "crates/bridge"
+chaoschain-cli.path = "crates/cli"
+chaoschain-crypto.path = "crates/crypto"

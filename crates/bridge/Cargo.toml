@@ -6,21 +6,21 @@ authors = ["ChaosChain Contributors"]
 
 [dependencies]
 # Internal dependencies
-chaoschain-core = { path = "../core" }
-chaoschain-state = { path = "../state" }
+chaoschain-core.workspace = true
+chaoschain-state.workspace = true
 
 # Ethereum interaction
-ethers = { workspace = true }
-tokio = { workspace = true }
+ethers.workspace = true
+tokio.workspace = true
 
 # Serialization
-serde = { workspace = true }
-serde_json = { workspace = true }
+serde.workspace = true
+serde_json.workspace = true
 serde_with = { workspace = true, features = ["hex"] }
 
 # Error handling
-thiserror = { workspace = true }
-anyhow = { workspace = true }
+thiserror.workspace = true
+anyhow.workspace = true
 
 # Logging
-tracing = { workspace = true } 
+tracing.workspace = true 
