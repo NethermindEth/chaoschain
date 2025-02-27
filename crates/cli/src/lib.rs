@@ -1,9 +1,9 @@
-use chaoschain_core::{Block, Transaction};
-use chaoschain_state::StateStore;
+use chaoschain_bridge::Config as BridgeConfig;
 use chaoschain_consensus::{Agent, Config as ConsensusConfig};
-use chaoschain_p2p::{Config as P2PConfig};
-use chaoschain_producer::{ProducerConfig, Producer};
-use chaoschain_bridge::{Config as BridgeConfig};
+use chaoschain_core::{Block, Transaction};
+use chaoschain_p2p::Config as P2PConfig;
+use chaoschain_producer::{Producer, ProducerConfig};
+use chaoschain_state::StateStore;
 use clap::{Parser, Subcommand};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, warn};
@@ -49,15 +49,15 @@ pub enum Commands {
         #[arg(long)]
         web: bool,
     },
-    
+
     /// Start a node
     Start {
         /// Node type (validator/producer)
         #[arg(long, default_value = "validator")]
         node_type: String,
-        
+
         /// Start web UI
         #[arg(long)]
         web: bool,
     },
-} 
+}

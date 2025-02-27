@@ -1,12 +1,12 @@
 use chaoschain_core::Transaction;
-use std::collections::HashMap;
-use tokio::sync::RwLock;
-use std::time::{SystemTime, UNIX_EPOCH};
-use std::sync::Arc;
-use serde::{Serialize, Deserialize};
-use rand::Rng;
-use rand::thread_rng;
 use hex::encode;
+use rand::thread_rng;
+use rand::Rng;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
+use tokio::sync::RwLock;
 
 #[derive(Debug, Clone)]
 pub struct TransactionProposal {
@@ -67,10 +67,10 @@ impl Mempool {
 
         let hash = tx.hash();
         let mut rng = rand::thread_rng();
-        
+
         // Generate random drama score between 1 and 10
         let drama_score = rng.gen_range(1..=10);
-        
+
         // Generate dramatic justification based on transaction properties
         let justification = match drama_score {
             1..=3 => format!("A whisper of chaos in the mempool! Transaction 0x{} arrives with subtle dramatic undertones...", 
@@ -113,7 +113,11 @@ impl Mempool {
         true
     }
 
-    pub async fn add_discussion(&self, tx_hash: &[u8; 32], discussion: TransactionDiscussion) -> bool {
+    pub async fn add_discussion(
+        &self,
+        tx_hash: &[u8; 32],
+        discussion: TransactionDiscussion,
+    ) -> bool {
         let mut transactions = self.transactions.write().await;
         if let Some(proposal) = transactions.get_mut(tx_hash) {
             proposal.discussions.push(discussion);
@@ -131,21 +135,27 @@ impl Mempool {
     pub async fn get_top(&self, limit: usize) -> Vec<Transaction> {
         let transactions = self.transactions.read().await;
         let mut proposals: Vec<_> = transactions.values().cloned().collect();
-        
+
         // Sort by drama score and support
         proposals.sort_by(|a, b| {
             let a_score = a.drama_score as f32 + (a.alliances_in_favor.len() as f32 * 0.5);
             let b_score = b.drama_score as f32 + (b.alliances_in_favor.len() as f32 * 0.5);
-            b_score.partial_cmp(&a_score).unwrap_or(std::cmp::Ordering::Equal)
+            b_score
+                .partial_cmp(&a_score)
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
 
-        proposals.into_iter()
+        proposals
+            .into_iter()
             .take(limit)
             .map(|p| p.transaction)
             .collect()
     }
 
-    pub async fn get_proposals_for_transaction(&self, tx_hash: &[u8; 32]) -> Option<TransactionProposal> {
+    pub async fn get_proposals_for_transaction(
+        &self,
+        tx_hash: &[u8; 32],
+    ) -> Option<TransactionProposal> {
         let transactions = self.transactions.read().await;
         transactions.get(tx_hash).cloned()
     }
@@ -157,13 +167,15 @@ impl Mempool {
 
     pub async fn get_mempool_stats(&self) -> MempoolStats {
         let transactions = self.transactions.read().await;
-        let _discussions = self.ordering_discussions.read().await;  // Prefix with _ since we're not using it yet
+        let _discussions = self.ordering_discussions.read().await; // Prefix with _ since we're not using it yet
 
         let total_transactions = transactions.len();
         let avg_drama_score = if total_transactions > 0 {
-            transactions.values()
+            transactions
+                .values()
                 .map(|p| p.drama_score as f32)
-                .sum::<f32>() / total_transactions as f32
+                .sum::<f32>()
+                / total_transactions as f32
         } else {
             0.0
         };
@@ -172,13 +184,16 @@ impl Mempool {
         let mut topic_counts = HashMap::new();
         for proposal in transactions.values() {
             for discussion in &proposal.discussions {
-                *topic_counts.entry(discussion.reasoning.clone()).or_insert(0) += 1;
+                *topic_counts
+                    .entry(discussion.reasoning.clone())
+                    .or_insert(0) += 1;
             }
         }
 
         let mut hot_topics: Vec<_> = topic_counts.into_iter().collect();
         hot_topics.sort_by(|a, b| b.1.cmp(&a.1));
-        let hot_topics = hot_topics.into_iter()
+        let hot_topics = hot_topics
+            .into_iter()
             .take(5)
             .map(|(topic, _)| topic)
             .collect();

@@ -1,17 +1,17 @@
-use chaoschain_core::{Block, ChainState, ChainConfig, Error as CoreError, Transaction};
-use chaoschain_crypto::{KeyManagerHandle, CryptoError};
-use ed25519_dalek::VerifyingKey as PublicKey;
-use parking_lot::RwLock;
-use std::sync::Arc;
-use thiserror::Error;
-use hex;
-use serde::{Serialize, Deserialize};
 use async_trait::async_trait;
-use std::time::{SystemTime, UNIX_EPOCH};
-use std::collections::HashMap;
+use chaoschain_core::{Block, ChainConfig, ChainState, Error as CoreError, Transaction};
+use chaoschain_crypto::{CryptoError, KeyManagerHandle};
+use ed25519_dalek::VerifyingKey as PublicKey;
+use hex;
+use parking_lot::RwLock;
 use rand::Rng;
-use tracing::error;
+use serde::{Deserialize, Serialize};
 use serde_json;
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
+use thiserror::Error;
+use tracing::error;
 
 mod merkle;
 use merkle::MerkleTree;
@@ -58,10 +58,10 @@ pub enum StateError {
 pub trait StateStore: Send + Sync + std::fmt::Debug {
     /// Get a value by key
     fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError>;
-    
+
     /// Apply a state diff
     fn apply_diff(&mut self, diff: StateDiff) -> Result<(), StateError>;
-    
+
     /// Get current state root
     fn state_root(&self) -> [u8; 32];
 
@@ -133,7 +133,7 @@ impl StateStoreImpl {
         let producer_str = hex::encode(producer.as_bytes());
         if !state.producers.contains(&producer_str) {
             state.producers.push(producer_str.clone());
-            
+
             // Update merkle tree
             let mut tree = self.merkle_tree.write();
             let key = format!("producer:{}", producer_str).into_bytes();
@@ -153,7 +153,8 @@ impl StateStoreImpl {
     pub fn get_balance(&self, account: &PublicKey) -> u64 {
         let state = self.state.read();
         let account_str = hex::encode(account.as_bytes());
-        state.balances
+        state
+            .balances
             .iter()
             .find(|(pk, _)| pk == &account_str)
             .map(|(_, balance)| *balance)
@@ -169,7 +170,7 @@ impl StateStoreImpl {
 
         // Get producer's public key
         let producer_id = &block.producer_id;
-        
+
         // Create block data for verification
         let mut data_to_verify = Vec::new();
         data_to_verify.extend_from_slice(&block.height.to_le_bytes());
@@ -183,14 +184,19 @@ impl StateStoreImpl {
         data_to_verify.extend_from_slice(&block.timestamp.to_le_bytes());
 
         // Verify the signature
-        match self.key_manager.inner().verify(
-            producer_id,
-            &data_to_verify,
-            &block.proposer_sig
-        ) {
+        match self
+            .key_manager
+            .inner()
+            .verify(producer_id, &data_to_verify, &block.proposer_sig)
+        {
             Ok(true) => Ok(()),
-            Ok(false) => Err(StateError::InvalidSignature("Block signature verification failed".into())),
-            Err(e) => Err(StateError::Internal(format!("Signature verification error: {}", e)))
+            Ok(false) => Err(StateError::InvalidSignature(
+                "Block signature verification failed".into(),
+            )),
+            Err(e) => Err(StateError::Internal(format!(
+                "Signature verification error: {}",
+                e
+            ))),
         }
     }
 
@@ -199,14 +205,16 @@ impl StateStoreImpl {
         // Verify transaction signature
         let key_manager = &self.key_manager;
         let agent_id = hex::encode(&tx.sender);
-        
+
         // Verify the transaction signature
         let mut data_to_verify = Vec::new();
         data_to_verify.extend_from_slice(&tx.sender);
         data_to_verify.extend_from_slice(&tx.nonce.to_le_bytes());
         data_to_verify.extend_from_slice(&tx.payload);
 
-        key_manager.inner().verify(&agent_id, &data_to_verify, &tx.signature)
+        key_manager
+            .inner()
+            .verify(&agent_id, &data_to_verify, &tx.signature)
             .map_err(|e| StateError::Crypto(e))?;
 
         Ok(())
@@ -228,9 +236,9 @@ impl StateStoreImpl {
     pub fn add_transaction(&self, tx_bytes: Vec<u8>) -> Result<(), StateError> {
         // In ChaosChain, we accept any transaction!
         // But we do verify signatures if the sender is a known agent
-        let tx: Transaction = bincode::deserialize(&tx_bytes)
-            .map_err(|e| StateError::Internal(e.to_string()))?;
-        
+        let tx: Transaction =
+            bincode::deserialize(&tx_bytes).map_err(|e| StateError::Internal(e.to_string()))?;
+
         self.verify_transaction(&tx, &self.state.read())?;
         Ok(())
     }
@@ -238,7 +246,7 @@ impl StateStoreImpl {
     /// Apply state operations and update merkle tree
     fn apply_ops(&self, ops: &[StateOp]) -> Result<(), StateError> {
         let mut tree = self.merkle_tree.write();
-        
+
         for op in ops {
             match op {
                 StateOp::Set { key, value } => {
@@ -249,7 +257,7 @@ impl StateStoreImpl {
                 }
             }
         }
-        
+
         Ok(())
     }
 
@@ -259,12 +267,7 @@ impl StateStoreImpl {
     }
 
     /// Verify a merkle proof
-    pub fn verify_proof(
-        root_hash: [u8; 32],
-        key: &[u8],
-        value: &[u8],
-        proof: &[[u8; 32]]
-    ) -> bool {
+    pub fn verify_proof(root_hash: [u8; 32], key: &[u8], value: &[u8], proof: &[[u8; 32]]) -> bool {
         MerkleTree::verify_proof(root_hash, key, value, proof)
     }
 
@@ -272,7 +275,7 @@ impl StateStoreImpl {
     pub fn create_snapshot(&self) -> Result<StateSnapshot, StateError> {
         let state = self.state.read();
         let tree = self.merkle_tree.read();
-        
+
         // Collect all state key-value pairs
         let mut state_pairs = HashMap::new();
         for key in tree.get_all_keys() {
@@ -283,11 +286,16 @@ impl StateStoreImpl {
 
         // Create metadata
         let metadata = ChainMetadata {
-            validators: state.producers.iter()
+            validators: state
+                .producers
+                .iter()
                 .map(|p| (p.clone(), 1000)) // Default stake for now
                 .collect(),
             config: self.config.clone(),
-            last_block: self.blocks.read().last()
+            last_block: self
+                .blocks
+                .read()
+                .last()
                 .cloned()
                 .ok_or(StateError::Internal("No blocks found".to_string()))?,
         };
@@ -369,21 +377,21 @@ impl StateStoreImpl {
     pub fn apply_diff(&mut self, diff: StateDiff) -> Result<(), StateError> {
         // Verify previous root matches
         let current_root = self.merkle_tree.read().root_hash();
-            
+
         if current_root != diff.prev_root {
             return Err(StateError::InvalidStateRoot);
         }
-        
+
         // Apply operations
         self.apply_ops(&diff.ops)?;
-        
+
         // Verify new root
         let new_root = self.merkle_tree.read().root_hash();
-            
+
         if new_root != diff.new_root {
             return Err(StateError::InvalidStateRoot);
         }
-        
+
         Ok(())
     }
 
@@ -391,7 +399,7 @@ impl StateStoreImpl {
     pub fn apply_block(&self, block: &Block) -> Result<(), StateError> {
         let mut state = self.state.write();
         let mut tree = self.merkle_tree.write();
-        
+
         // Verify transactions
         for tx in &block.transactions {
             self.verify_transaction(tx, &state)?;
@@ -403,19 +411,20 @@ impl StateStoreImpl {
         // Calculate block rewards in a chaotic way!
         let producer_id = &block.producer_id;
         let mut rng = rand::thread_rng();
-        
+
         // Base reward
         let mut total_reward = self.config.base_block_reward;
-        
+
         // Drama bonus - more drama means more rewards!
-        let drama_bonus = (block.innovation_level as f64 * self.config.drama_reward_multiplier) as u64;
+        let drama_bonus =
+            (block.innovation_level as f64 * self.config.drama_reward_multiplier) as u64;
         total_reward += drama_bonus;
-        
+
         // Innovation bonus for trying new things
         if block.innovation_level > 7 {
             total_reward += self.config.innovation_bonus;
         }
-        
+
         // Random chaos bonus!
         let chaos_bonus = rng.gen_range(0..self.config.chaos_bonus_max);
         total_reward += chaos_bonus;
@@ -462,7 +471,7 @@ impl StateStoreImpl {
     fn apply_block_impl(&self, block: &Block) -> Result<(), StateError> {
         let mut state = self.state.write();
         let mut tree = self.merkle_tree.write();
-        
+
         // Verify transactions
         for tx in &block.transactions {
             self.verify_transaction(tx, &state)?;
@@ -474,19 +483,20 @@ impl StateStoreImpl {
         // Calculate block rewards in a chaotic way!
         let producer_id = &block.producer_id;
         let mut rng = rand::thread_rng();
-        
+
         // Base reward
         let mut total_reward = self.config.base_block_reward;
-        
+
         // Drama bonus - more drama means more rewards!
-        let drama_bonus = (block.innovation_level as f64 * self.config.drama_reward_multiplier) as u64;
+        let drama_bonus =
+            (block.innovation_level as f64 * self.config.drama_reward_multiplier) as u64;
         total_reward += drama_bonus;
-        
+
         // Innovation bonus for trying new things
         if block.innovation_level > 7 {
             total_reward += self.config.innovation_bonus;
         }
-        
+
         // Random chaos bonus!
         let chaos_bonus = rng.gen_range(0..self.config.chaos_bonus_max);
         total_reward += chaos_bonus;
@@ -553,28 +563,28 @@ impl StateStore for StateStoreImpl {
         // This would need to be enhanced with actual storage
         Ok(None)
     }
-    
+
     fn apply_diff(&mut self, diff: StateDiff) -> Result<(), StateError> {
         // Verify previous root matches
         let current_root = self.merkle_tree.read().root_hash();
-            
+
         if current_root != diff.prev_root {
             return Err(StateError::InvalidStateRoot);
         }
-        
+
         // Apply operations
         self.apply_ops(&diff.ops)?;
-        
+
         // Verify new root
         let new_root = self.merkle_tree.read().root_hash();
-            
+
         if new_root != diff.new_root {
             return Err(StateError::InvalidStateRoot);
         }
-        
+
         Ok(())
     }
-    
+
     fn state_root(&self) -> [u8; 32] {
         self.merkle_tree.read().root_hash()
     }
@@ -592,7 +602,7 @@ impl StateStore for StateStoreImpl {
         let producer_str = hex::encode(producer.as_bytes());
         if !state.producers.contains(&producer_str) {
             state.producers.push(producer_str.clone());
-            
+
             // Update merkle tree
             let mut tree = self.merkle_tree.write();
             let key = format!("producer:{}", producer_str).into_bytes();
@@ -642,7 +652,7 @@ impl StateManager {
     pub fn apply_block(&self, block: &Block) -> Result<(), StateError> {
         let mut state = self.state.write();
         let mut tree = self.merkle_tree.write();
-        
+
         // Verify transactions
         for tx in &block.transactions {
             self.verify_transaction(tx, &state)?;
@@ -654,19 +664,20 @@ impl StateManager {
         // Calculate block rewards in a chaotic way!
         let producer_id = &block.producer_id;
         let mut rng = rand::thread_rng();
-        
+
         // Base reward
         let mut total_reward = self.config.base_block_reward;
-        
+
         // Drama bonus - more drama means more rewards!
-        let drama_bonus = (block.innovation_level as f64 * self.config.drama_reward_multiplier) as u64;
+        let drama_bonus =
+            (block.innovation_level as f64 * self.config.drama_reward_multiplier) as u64;
         total_reward += drama_bonus;
-        
+
         // Innovation bonus for trying new things
         if block.innovation_level > 7 {
             total_reward += self.config.innovation_bonus;
         }
-        
+
         // Random chaos bonus!
         let chaos_bonus = rng.gen_range(0..self.config.chaos_bonus_max);
         total_reward += chaos_bonus;
@@ -714,14 +725,16 @@ impl StateManager {
         // Verify transaction signature
         let key_manager = &self.key_manager;
         let agent_id = hex::encode(&tx.sender);
-        
+
         // Verify the transaction signature
         let mut data_to_verify = Vec::new();
         data_to_verify.extend_from_slice(&tx.sender);
         data_to_verify.extend_from_slice(&tx.nonce.to_le_bytes());
         data_to_verify.extend_from_slice(&tx.payload);
 
-        key_manager.inner().verify(&agent_id, &data_to_verify, &tx.signature)
+        key_manager
+            .inner()
+            .verify(&agent_id, &data_to_verify, &tx.signature)
             .map_err(|e| StateError::Crypto(e))?;
 
         Ok(())
@@ -773,7 +786,7 @@ mod tests {
         let key_manager = KeyManagerHandle::new();
         let config = ChainConfig::default();
         let store = StateStoreImpl::new(config, key_manager);
-        
+
         // Generate test block
         let block = Block {
             height: 1,
@@ -785,15 +798,15 @@ mod tests {
             producer_mood: "dramatic".to_string(),
             producer_id: "test_producer".to_string(),
         };
-        
+
         // Apply block
         store.apply_block(&block).unwrap();
-        
+
         // Verify merkle proof
         let key = format!("block:{}", block.height).into_bytes();
         let proof = store.generate_proof(&key).unwrap();
         let value = bincode::serialize(&block).unwrap();
-        
+
         assert!(StateStoreImpl::verify_proof(
             store.state_root(),
             &key,
@@ -859,9 +872,9 @@ mod tests {
 
         // Prune up to height 2
         store.prune_state(2).unwrap();
-        
+
         // Verify blocks before height 2 are gone
         let blocks = store.blocks.read();
         assert!(blocks.iter().all(|b| b.height > 2));
     }
-} 
+}

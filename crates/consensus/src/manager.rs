@@ -1,18 +1,18 @@
-use std::collections::{HashMap, HashSet};
-use tokio::sync::RwLock as TokioRwLock;
-use std::sync::Arc;
-use anyhow::{Result, anyhow};
+use crate::types::WebMessage;
+use crate::types::*;
+use crate::ConsensusError;
+use crate::DramaEvent;
+use anyhow::{anyhow, Result};
 use chaoschain_core::{Block, NetworkEvent, ValidationDecision};
 use chaoschain_state::StateStore;
-use tracing::info;
-use serde::{Serialize, Deserialize};
-use rand::{Rng, rngs::SmallRng, SeedableRng};
+use rand::{rngs::SmallRng, Rng, SeedableRng};
+use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 use tokio::sync::broadcast;
-use crate::types::*;
-use crate::DramaEvent;
-use crate::ConsensusError;
-use crate::types::WebMessage;
 use tokio::sync::mpsc::Sender;
+use tokio::sync::RwLock as TokioRwLock;
+use tracing::info;
 
 /// Block status in consensus
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -68,7 +68,10 @@ pub struct ConsensusManager {
 }
 
 impl ConsensusManager {
-    pub fn new(state_store: Arc<dyn StateStore>, network_tx: broadcast::Sender<NetworkEvent>) -> Self {
+    pub fn new(
+        state_store: Arc<dyn StateStore>,
+        network_tx: broadcast::Sender<NetworkEvent>,
+    ) -> Self {
         Self {
             state_store,
             state: Arc::new(TokioRwLock::new(ConsensusState::default())),
@@ -88,16 +91,18 @@ impl ConsensusManager {
     /// Start voting round for a new block
     pub async fn start_voting_round(&self, block: Block) {
         let mut state = self.state.write().await;
-        
+
         if let Some(current_block) = &state.current_block {
             if current_block.height == block.height {
                 return;
             }
         }
-        
+
         state.votes.clear();
         state.current_block = Some(block.clone());
-        state.block_status.insert(block.height, BlockStatus::Pending);
+        state
+            .block_status
+            .insert(block.height, BlockStatus::Pending);
         drop(state);
 
         // Send to network
@@ -124,33 +129,39 @@ impl ConsensusManager {
     }
 
     /// Add a vote from a validator with extra drama
-    pub async fn add_vote(&self, vote: ValidationDecision, stake: u64, block_hash: [u8; 32]) -> Result<bool> {
+    pub async fn add_vote(
+        &self,
+        vote: ValidationDecision,
+        stake: u64,
+        block_hash: [u8; 32],
+    ) -> Result<bool> {
         let mut votes = self.votes.write().await;
-        
+
         let block_votes = votes.entry(block_hash).or_default();
         block_votes.push((vote.clone(), stake));
-        
-        let total_stake: u64 = block_votes.iter()
-            .map(|(_, s)| s)
-            .sum();
-            
-        let approval_stake: u64 = block_votes.iter()
+
+        let total_stake: u64 = block_votes.iter().map(|(_, s)| s).sum();
+
+        let approval_stake: u64 = block_votes
+            .iter()
             .filter(|(v, _)| v.approved)
             .map(|(_, s)| s)
             .sum();
-            
-        let consensus_reached = (approval_stake as f64 / total_stake as f64) >= self.consensus_threshold;
-        
+
+        let consensus_reached =
+            (approval_stake as f64 / total_stake as f64) >= self.consensus_threshold;
+
         if consensus_reached {
             self.trigger_dramatic_event(&block_hash).await?;
         }
-        
+
         Ok(consensus_reached)
     }
 
     async fn get_total_stake(&self) -> u64 {
         let votes = self.votes.read().await;
-        votes.values()
+        votes
+            .values()
             .flat_map(|vec| vec.iter())
             .map(|(_, stake)| stake)
             .sum()
@@ -158,18 +169,22 @@ impl ConsensusManager {
 
     async fn get_approved_stake(&self, block_hash: &[u8; 32]) -> u64 {
         let votes = self.votes.read().await;
-        votes.get(block_hash)
-            .map(|vec| vec.iter()
-                .filter(|(vote, _)| vote.approved)
-                .map(|(_, stake)| stake)
-                .sum())
+        votes
+            .get(block_hash)
+            .map(|vec| {
+                vec.iter()
+                    .filter(|(vote, _)| vote.approved)
+                    .map(|(_, stake)| stake)
+                    .sum()
+            })
             .unwrap_or(0)
     }
 
     /// Finalize a block with maximum drama
     async fn finalize_block_with_drama(&self, block: &Block, drama_level: u8) -> Result<()> {
         // Apply block to state with theatrical flair
-        self.state_store.apply_block(block)
+        self.state_store
+            .apply_block(block)
             .map_err(|e| anyhow!("State error: {}", e))?;
 
         // Get new state root
@@ -177,15 +192,23 @@ impl ConsensusManager {
 
         // Collect validator signatures with style
         let mut state = self.state.write().await;
-        let signatures: Vec<Vec<u8>> = state.votes.values()
+        let signatures: Vec<Vec<u8>> = state
+            .votes
+            .values()
             .filter(|(v, _)| v.approved)
             .map(|(v, _)| v.signature.to_vec())
             .collect();
 
         // Generate dramatic finalization message
         let drama_stars = "⭐".repeat(drama_level as usize);
-        info!("🎭 BLOCK {} FINALIZED! {} 🎭\nDrama Level: {}\nState Root: {:?}\nSignatures: {}", 
-            block.height, drama_stars, drama_level, state_root, signatures.len());
+        info!(
+            "🎭 BLOCK {} FINALIZED! {} 🎭\nDrama Level: {}\nState Root: {:?}\nSignatures: {}",
+            block.height,
+            drama_stars,
+            drama_level,
+            state_root,
+            signatures.len()
+        );
 
         // Update block status with flair
         state.block_status.insert(
@@ -194,7 +217,7 @@ impl ConsensusManager {
                 hash: block.hash(),
                 state_root,
                 signatures,
-            }
+            },
         );
         state.finalized_blocks.push(block.hash());
 
@@ -209,24 +232,27 @@ impl ConsensusManager {
         drama_level: u8,
     ) -> Result<()> {
         let mut state = self.state.write().await;
-        
+
         // Generate dramatic rejection message
         let drama_flames = "🔥".repeat(drama_level as usize);
-        let formatted_reasons: String = reasons.iter()
+        let formatted_reasons: String = reasons
+            .iter()
             .enumerate()
             .map(|(i, r)| format!("{}. {}", i + 1, r))
             .collect::<Vec<_>>()
             .join("\n");
 
-        info!("💔 BLOCK {} REJECTED! {} 🔥\nDrama Level: {}\nReasons:\n{}", 
-            block.height, drama_flames, drama_level, formatted_reasons);
+        info!(
+            "💔 BLOCK {} REJECTED! {} 🔥\nDrama Level: {}\nReasons:\n{}",
+            block.height, drama_flames, drama_level, formatted_reasons
+        );
 
         state.block_status.insert(
             block.height,
             BlockStatus::Rejected {
                 hash: block.hash(),
                 reasons,
-            }
+            },
         );
 
         Ok(())
@@ -236,7 +262,7 @@ impl ConsensusManager {
     async fn trigger_dramatic_event(&self, _block_hash: &[u8; 32]) -> Result<()> {
         let mut rng = SmallRng::from_entropy();
         let drama_level = rng.gen_range(1..=10);
-        
+
         let mut drama_events = self.drama_events.write().await;
         drama_events.push(DramaEvent::Drama {
             agent: "SYSTEM".to_string(),
@@ -287,25 +313,27 @@ impl ConsensusManager {
     pub async fn get_producer_count(&self) -> usize {
         let state = self.state.read().await;
         let mut producers = std::collections::HashSet::new();
-        
+
         // Add current block's producer if any
         if let Some(block) = &state.current_block {
             producers.insert(block.producer_id.clone());
         }
-        
+
         producers.len()
     }
 
     pub async fn get_approval_count(&self) -> u32 {
         let votes = self.votes.read().await;
-        votes.values()
+        votes
+            .values()
             .filter(|vec| vec.iter().any(|(vote, _)| vote.approved))
             .count() as u32
     }
 
     pub async fn get_rejection_count(&self) -> u32 {
         let votes = self.votes.read().await;
-        votes.values()
+        votes
+            .values()
             .filter(|vec| vec.iter().any(|(vote, _)| !vote.approved))
             .count() as u32
     }
@@ -325,7 +353,7 @@ impl ConsensusManager {
     pub async fn analyze_alliance_benefits(
         &self,
         partners: &[String],
-        _terms: &AllianceTerms
+        _terms: &AllianceTerms,
     ) -> Result<AllianceAnalysis> {
         let state = self.state.read().await;
         let mut total_stake = 0u64;
@@ -359,10 +387,11 @@ impl ConsensusManager {
     pub async fn assess_alliance_risks(
         &self,
         partners: &[String],
-        _terms: &AllianceTerms
+        _terms: &AllianceTerms,
     ) -> Result<RiskAssessment> {
         let _competing_alliances = self.find_competing_alliances(partners).await?;
-        let _commitment_risks: Vec<CommitmentRisk> = partners.iter()
+        let _commitment_risks: Vec<CommitmentRisk> = partners
+            .iter()
             .map(|p| self.evaluate_commitment_risk(p))
             .collect();
 
@@ -375,12 +404,9 @@ impl ConsensusManager {
     }
 
     /// Verify information authenticity and value
-    pub async fn verify_information(
-        &self,
-        info: &NetworkInfo
-    ) -> Result<InformationVerification> {
+    pub async fn verify_information(&self, info: &NetworkInfo) -> Result<InformationVerification> {
         let reliability = Self::calculate_source_reliability(&info.info_type);
-        
+
         Ok(InformationVerification {
             is_authentic: true, // For now, assume all info is authentic
             source_reliability: reliability,
@@ -396,13 +422,13 @@ impl ConsensusManager {
         let base_score = action.base_drama_score();
         let state = self.state.read().await;
         let current_drama = state.drama_level;
-        
+
         // Drama potential increases with current drama level
         ((base_score as f32 * (1.0 + current_drama as f32 / 10.0)) as u8).min(10)
     }
 
     // Helper methods
-    
+
     async fn calculate_rule_impact(&self, rule: &ConsensusRule) -> f32 {
         let drama_multiplier = self.get_drama_multiplier().await;
         let base_impact = match rule.rule_type {
@@ -412,7 +438,7 @@ impl ConsensusManager {
             RuleType::MemeWar => 2.5,
             _ => 1.0,
         };
-        
+
         base_impact * drama_multiplier
     }
 
@@ -482,7 +508,10 @@ impl ConsensusManager {
         (voting_power + drama_boost).min(1.0)
     }
 
-    async fn find_competing_alliances(&self, _partners: &[String]) -> Result<Vec<CompetingAlliance>> {
+    async fn find_competing_alliances(
+        &self,
+        _partners: &[String],
+    ) -> Result<Vec<CompetingAlliance>> {
         let _state = self.state.read().await;
         Ok(vec![])
     }
@@ -514,11 +543,11 @@ impl ConsensusManager {
         if total_votes == 0.0 {
             return 0;
         }
-        
+
         // Calculate impact based on disagreement
         let approvals = votes.values().filter(|&&v| v).count() as f32;
         let disagreement_ratio = (approvals / total_votes - 0.5).abs() * 2.0;
-        
+
         // Scale to 0-10 range
         (disagreement_ratio * 10.0) as u8
     }
@@ -526,7 +555,7 @@ impl ConsensusManager {
     pub async fn broadcast_block(&self, block: &Block) -> Result<()> {
         let mut rng = SmallRng::from_entropy();
         let drama_level = rng.gen_range(0..10);
-        
+
         self.network_tx.send(NetworkEvent::BlockProposal {
             block: block.clone(),
             drama_level,
@@ -544,7 +573,7 @@ impl ConsensusManager {
     pub async fn update_drama_level(&self, new_level: u8) -> Result<()> {
         let mut state = self.state.write().await;
         state.drama_level = new_level;
-        
+
         if new_level > 7 {
             let event = DramaEvent::Drama {
                 agent: "SYSTEM".to_string(),
@@ -553,25 +582,31 @@ impl ConsensusManager {
             };
             self.drama_events.write().await.push(event);
         }
-        
+
         Ok(())
     }
 
-    async fn calculate_block_drama(&self, block: &Block, votes: &HashMap<[u8; 32], (ValidationDecision, u64)>) -> u8 {
+    async fn calculate_block_drama(
+        &self,
+        block: &Block,
+        votes: &HashMap<[u8; 32], (ValidationDecision, u64)>,
+    ) -> u8 {
         let mut drama_score = 0u8;
-        
+
         // Base drama from block
         drama_score = drama_score.saturating_add(block.drama_level);
-        
+
         // Drama from validation decisions
         let total_votes = votes.len() as f32;
         if total_votes > 0.0 {
-            let avg_vote_drama: f32 = votes.values()
+            let avg_vote_drama: f32 = votes
+                .values()
                 .map(|(decision, _)| decision.drama_level as f32)
-                .sum::<f32>() / total_votes;
+                .sum::<f32>()
+                / total_votes;
             drama_score = drama_score.saturating_add(avg_vote_drama as u8);
         }
-        
+
         // Bonus drama for controversial blocks
         let approvals = votes.values().filter(|(d, _)| d.approved).count();
         let rejections = votes.len() - approvals;
@@ -579,7 +614,7 @@ impl ConsensusManager {
             let controversy_bonus = ((approvals as f32 / rejections as f32) - 1.0).abs() as u8;
             drama_score = drama_score.saturating_add(controversy_bonus);
         }
-        
+
         // Cap at maximum drama
         drama_score.min(10)
     }
@@ -643,4 +678,4 @@ impl DramaticAction for ConsensusRule {
             RuleType::StrictConsensus => 3,
         }
     }
-} 
+}

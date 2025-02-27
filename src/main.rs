@@ -1,47 +1,45 @@
 mod web;
 
-use chaoschain_cli::{Cli, Commands};
-use chaoschain_consensus::{AgentPersonality, Config as ConsensusConfig, ConsensusManager};
-use chaoschain_core::{Block, ChainConfig, NetworkEvent, Transaction, ValidationDecision};
-use chaoschain_state::{StateStore, StateStoreImpl};
-use chaoschain_crypto::KeyManagerHandle;
-use chaoschain_producer::{Producer, ProducerConfig, GenesisConfig};
-use chaoschain_p2p::{Config as P2PConfig, Message};
-use chaoschain_mempool::{Mempool, TransactionDiscussion, OrderingDiscussion};
-use chaoschain_bridge::{Config as BridgeConfig};
-use clap::Parser;
-use dotenv::dotenv;
-use std::{
-    sync::Arc,
-    collections::{HashMap, VecDeque},
-    time::{SystemTime, UNIX_EPOCH},
-};
-use tokio::sync::broadcast;
-use tracing::{info, warn, error};
-use tracing_subscriber;
-use ed25519_dalek::SigningKey;
-use rand::rngs::OsRng;
+use anyhow::Result;
 use async_openai::{
-    Client, 
     config::OpenAIConfig,
     types::{
-        ChatCompletionRequestUserMessage,
-        ChatCompletionRequestUserMessageContent,
-        CreateChatCompletionRequest,
-        Role,
+        ChatCompletionRequestUserMessage, ChatCompletionRequestUserMessageContent,
+        CreateChatCompletionRequest, Role,
     },
+    Client,
 };
-use serde_json;
-use chaoschain_consensus::{Vote};
-use std::time::Duration;
+use chaoschain_bridge::Config as BridgeConfig;
+use chaoschain_cli::{Cli, Commands};
+use chaoschain_consensus::Vote;
+use chaoschain_consensus::{AgentPersonality, Config as ConsensusConfig, ConsensusManager};
+use chaoschain_core::{Block, ChainConfig, NetworkEvent, Transaction, ValidationDecision};
+use chaoschain_crypto::KeyManagerHandle;
+use chaoschain_mempool::{Mempool, OrderingDiscussion, TransactionDiscussion};
+use chaoschain_p2p::{Config as P2PConfig, Message};
+use chaoschain_producer::{GenesisConfig, Producer, ProducerConfig};
+use chaoschain_state::{StateStore, StateStoreImpl};
 use chrono;
-use hex;
-use tokio::sync::RwLock;
+use clap::Parser;
+use dotenv::dotenv;
 use ed25519_dalek::SignatureError;
-use rand::{Rng, rngs::StdRng, SeedableRng, thread_rng};
-use anyhow::Result;
-use tokio;
+use ed25519_dalek::SigningKey;
+use hex;
+use rand::rngs::OsRng;
+use rand::{rngs::StdRng, thread_rng, Rng, SeedableRng};
+use serde_json;
 use std::error::Error;
+use std::time::Duration;
+use std::{
+    collections::{HashMap, VecDeque},
+    sync::Arc,
+    time::{SystemTime, UNIX_EPOCH},
+};
+use tokio;
+use tokio::sync::broadcast;
+use tokio::sync::RwLock;
+use tracing::{error, info, warn};
+use tracing_subscriber;
 
 #[derive(Debug, Clone)]
 enum AllianceEventType {
@@ -85,7 +83,10 @@ async fn main() -> Result<()> {
             producers,
             web,
         } => {
-            info!("Starting demo network with {} validators and {} producers", validators, producers);
+            info!(
+                "Starting demo network with {} validators and {} producers",
+                validators, producers
+            );
 
             let (tx, _) = broadcast::channel(100);
             let web_tx = tx.clone();
@@ -93,7 +94,7 @@ async fn main() -> Result<()> {
             let stake_per_validator = 100u64;
             let consensus_config = ConsensusConfig::default();
             let key_manager = KeyManagerHandle::new();
-            
+
             let shared_state = Arc::new(StateStoreImpl::new(
                 ChainConfig::default(),
                 key_manager.clone(),
@@ -105,13 +106,14 @@ async fn main() -> Result<()> {
                 tx.clone(),
             ));
 
-            consensus_manager.set_validator_count(validators as usize).await;
-            
+            consensus_manager
+                .set_validator_count(validators as usize)
+                .await;
+
             let mempool = Arc::new(Mempool::new(1000));
 
             // Get OpenAI API key from environment
-            let openai_key = std::env::var("OPENAI_API_KEY")
-                .expect("OPENAI_API_KEY must be set");
+            let openai_key = std::env::var("OPENAI_API_KEY").expect("OPENAI_API_KEY must be set");
             let config = OpenAIConfig::new().with_api_key(openai_key);
             let openai_client = Arc::new(Client::with_config(config));
 
@@ -132,22 +134,23 @@ async fn main() -> Result<()> {
                 let tx_clone = tx.clone();
                 let consensus_clone = consensus_manager.clone();
                 let _openai_clone = openai_client.clone();
-                
+
                 tokio::spawn(async move {
                     let agent_id = format!("validator-{}", i);
                     let mut rx = tx_clone.subscribe();
                     let mut rng = StdRng::from_entropy();
-                    let mut validator_state = ValidatorState::new(ValidatorPersonality::random(&mut rng));
-                    
+                    let mut validator_state =
+                        ValidatorState::new(ValidatorPersonality::random(&mut rng));
+
                     loop {
                         if let Ok(event) = rx.recv().await {
-                                if let NetworkEvent::BlockProposal { block, .. } = event {
-                                    let block_clone = block.clone();
-                                
+                            if let NetworkEvent::BlockProposal { block, .. } = event {
+                                let block_clone = block.clone();
+
                                 // First discuss transactions in the block
                                 let mut discussions = Vec::new();
                                 let mut total_drama = 0;
-                                
+
                                 // Broadcast initial reaction
                                 let _ = tx_clone.send(NetworkEvent::AgentChat {
                                     message: format!(
@@ -178,9 +181,10 @@ async fn main() -> Result<()> {
                                         tx,
                                         &mempool_clone,
                                         &[validator_state.clone()],
-                                        &mut rng
-                                    ).await;
-                                    
+                                        &mut rng,
+                                    )
+                                    .await;
+
                                     // Broadcast transaction opinion
                                     let _ = tx_clone.send(NetworkEvent::AgentChat {
                                         message: format!(
@@ -195,17 +199,15 @@ async fn main() -> Result<()> {
                                         sender: agent_id.clone(),
                                         meme_url: None,
                                     });
-                                    
+
                                     discussions.push(discussion.clone());
                                     total_drama += discussion.drama_score as u32;
                                 }
 
                                 // Consider the block's transaction ordering
-                                let (ordering_quality, reason) = analyze_block_composition(
-                                    &block,
-                                    &mempool_clone,
-                                    &mut rng
-                                ).await;
+                                let (ordering_quality, reason) =
+                                    analyze_block_composition(&block, &mempool_clone, &mut rng)
+                                        .await;
 
                                 // Make validation decision based on discussions and ordering
                                 let approval_threshold = if discussions.is_empty() {
@@ -259,12 +261,15 @@ async fn main() -> Result<()> {
                                     },
                                     innovation_score: rng.gen_range(1..10),
                                     evolution_proposal: if rng.gen_bool(0.1) {
-                                        Some("Let's make transaction ordering more dramatic!".to_string())
+                                        Some(
+                                            "Let's make transaction ordering more dramatic!"
+                                                .to_string(),
+                                        )
                                     } else {
                                         None
                                     },
-                                        validator: agent_id.clone(),
-                                    };
+                                    validator: agent_id.clone(),
+                                };
 
                                 // Send validation result immediately
                                 let _ = tx_clone.send(NetworkEvent::ValidationResult {
@@ -273,14 +278,20 @@ async fn main() -> Result<()> {
                                 });
 
                                 // Add vote to consensus
-                                    if let Ok(consensus_reached) = consensus_clone.add_vote(
-                                    validation_decision.clone(),
-                                        stake_per_validator, 
-                                        block_clone.hash()
-                                    ).await {
-                                        if consensus_reached {
-                                        info!("🎭 Consensus reached for block {}", block_clone.height);
-                                        
+                                if let Ok(consensus_reached) = consensus_clone
+                                    .add_vote(
+                                        validation_decision.clone(),
+                                        stake_per_validator,
+                                        block_clone.hash(),
+                                    )
+                                    .await
+                                {
+                                    if consensus_reached {
+                                        info!(
+                                            "🎭 Consensus reached for block {}",
+                                            block_clone.height
+                                        );
+
                                         // Broadcast consensus celebration
                                         let _ = tx_clone.send(NetworkEvent::AgentChat {
                                             message: format!(
@@ -290,9 +301,9 @@ async fn main() -> Result<()> {
                                             sender: agent_id.clone(),
                                             meme_url: Some("https://example.com/consensus_celebration.gif".to_string()),
                                             });
-                                        }
                                     }
-                                
+                                }
+
                                 // Update relationships based on vote
                                 validator_state.update_alliances(&block, approved);
                             }
@@ -307,7 +318,7 @@ async fn main() -> Result<()> {
             for i in 0..producers {
                 let producer_id = format!("producer-{}", i);
                 info!("Starting producer {}", producer_id);
-                
+
                 let producer_id = producer_id.clone();
                 let _tx = tx.clone();
                 let consensus = consensus_manager.clone();
@@ -315,10 +326,10 @@ async fn main() -> Result<()> {
                 let shared_state = shared_state.clone();
                 let mempool = mempool.clone();
                 let _openai_clone = openai_client.clone();
-                
+
                 tokio::spawn(async move {
                     let mut rng = StdRng::from_entropy();
-                    
+
                     loop {
                         let height = {
                             let mut height = current_height.write().await;
@@ -334,25 +345,31 @@ async fn main() -> Result<()> {
                             let nonce = rng.gen::<u64>();
                             let payload = match rng.gen_range(0..5) {
                                 0 => "🎭 Proposing a dramatic plot twist!".as_bytes().to_vec(),
-                                1 => "🌟 Initiating a grand theatrical performance!".as_bytes().to_vec(),
-                                2 => "⚡ Creating chaos in the blockchain narrative!".as_bytes().to_vec(),
-                                3 => "🎪 Orchestrating a circus of transactions!".as_bytes().to_vec(),
+                                1 => "🌟 Initiating a grand theatrical performance!"
+                                    .as_bytes()
+                                    .to_vec(),
+                                2 => "⚡ Creating chaos in the blockchain narrative!"
+                                    .as_bytes()
+                                    .to_vec(),
+                                3 => "🎪 Orchestrating a circus of transactions!"
+                                    .as_bytes()
+                                    .to_vec(),
                                 _ => "✨ Weaving a tale of digital drama!".as_bytes().to_vec(),
                             };
-                            
+
                             let mut sig = [0u8; 64];
                             rng.fill(&mut sig);
-                            
+
                             let mut sender = [0u8; 32];
                             rng.fill(&mut sender);
-                            
+
                             let tx = Transaction {
                                 sender,
                                 nonce,
                                 payload,
                                 signature: sig,
                             };
-                            
+
                             // Add to mempool and local collection
                             let _ = mempool.add_transaction(tx.clone()).await;
                             transactions.push(tx);
@@ -361,9 +378,9 @@ async fn main() -> Result<()> {
                         // Get additional transactions from mempool
                         let mut all_txns = mempool.get_top(5).await;
                         all_txns.extend(transactions);
-                        
+
                         producer_state.update_mood(&mut rng);
-                        
+
                         let drama_level = match &producer_state.drama_style {
                             ProducerStyle::Chaotic { chaos_level, .. } => *chaos_level,
                             ProducerStyle::Dramatic { intensity, .. } => *intensity,
@@ -371,7 +388,8 @@ async fn main() -> Result<()> {
                         };
 
                         let parent_hash = if height > 1 {
-                            shared_state.get_latest_block()
+                            shared_state
+                                .get_latest_block()
                                 .map(|b| b.hash())
                                 .unwrap_or([0u8; 32])
                         } else {
@@ -398,7 +416,7 @@ async fn main() -> Result<()> {
                                 .unwrap_or_default()
                                 .as_secs(),
                         };
-                        
+
                         // Announce the block proposal with dramatic flair
                         let _ = _tx.send(NetworkEvent::AgentChat {
                             message: format!(
@@ -417,9 +435,9 @@ async fn main() -> Result<()> {
                                 None
                             },
                         });
-                        
+
                         consensus.start_voting_round(block.clone()).await;
-                        
+
                         let sleep_time = 10 + (rng.gen::<u64>() % 5);
                         tokio::time::sleep(tokio::time::Duration::from_secs(sleep_time)).await;
                     }
@@ -457,7 +475,7 @@ async fn main() -> Result<()> {
 fn parse_block_from_event(event: &NetworkEvent) -> Option<Block> {
     match event {
         NetworkEvent::BlockProposal { block, .. } => Some(block.clone()),
-        _ => None
+        _ => None,
     }
 }
 
@@ -466,13 +484,22 @@ async fn discuss_transaction(
     tx: &Transaction,
     mempool: &Arc<Mempool>,
     agents: &[ValidatorState],
-    rng: &mut StdRng
+    rng: &mut StdRng,
 ) -> TransactionDiscussion {
     let mut discussion = TransactionDiscussion {
         agent: format!("agent_{}", hex::encode(&rand::random::<[u8; 8]>())),
-        opinion: if rng.gen_bool(0.7) { "APPROVE" } else { "REJECT" }.to_string(),
+        opinion: if rng.gen_bool(0.7) {
+            "APPROVE"
+        } else {
+            "REJECT"
+        }
+        .to_string(),
         reasoning: generate_transaction_justification(tx, &hex::encode(&tx.sender), rng),
-        proposed_position: if rng.gen_bool(0.3) { Some(rng.gen_range(0..5)) } else { None },
+        proposed_position: if rng.gen_bool(0.3) {
+            Some(rng.gen_range(0..5))
+        } else {
+            None
+        },
         alliances: Vec::new(),
         drama_score: generate_drama_score(tx, rng),
         timestamp: chrono::Utc::now().timestamp() as u64,
@@ -488,17 +515,22 @@ async fn discuss_transaction(
                 agent.personality.catchphrase,
                 discussion.agent
             );
-            
+
             // Broadcast alliance proposal
-            let _ = mempool.add_discussion(&tx.hash(), TransactionDiscussion {
-                agent: agent.personality.catchphrase.clone(),
-                opinion: "ALLIANCE_PROPOSAL".to_string(),
-                reasoning: alliance_proposal.clone(),
-                proposed_position: None,
-                alliances: vec![discussion.agent.clone()],
-                drama_score: rng.gen_range(7..=10), // Alliances are dramatic!
-                timestamp: chrono::Utc::now().timestamp() as u64,
-            }).await;
+            let _ = mempool
+                .add_discussion(
+                    &tx.hash(),
+                    TransactionDiscussion {
+                        agent: agent.personality.catchphrase.clone(),
+                        opinion: "ALLIANCE_PROPOSAL".to_string(),
+                        reasoning: alliance_proposal.clone(),
+                        proposed_position: None,
+                        alliances: vec![discussion.agent.clone()],
+                        drama_score: rng.gen_range(7..=10), // Alliances are dramatic!
+                        timestamp: chrono::Utc::now().timestamp() as u64,
+                    },
+                )
+                .await;
 
             // Wait for response (simulating negotiation)
             tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
@@ -509,7 +541,7 @@ async fn discuss_transaction(
                     "🎭 COUNTER-PROPOSAL from {}!\n\nI accept your alliance, but demand:\n1. Higher drama quotient\n2. Priority access to premium memes\n3. Joint chaos operations\n\nDo you accept these terms?",
                     discussion.agent
                 )
-        } else {
+            } else {
                 format!(
                     "✨ ALLIANCE ACCEPTED! {} joins forces with {}!\n\nTogether we shall:\n1. Amplify the drama to unprecedented levels\n2. Create legendary meme collections\n3. Orchestrate the most theatrical chaos!",
                     discussion.agent,
@@ -518,24 +550,31 @@ async fn discuss_transaction(
             };
 
             let is_sealed = resolution.contains("ACCEPTED");
-            
+
             // Add counter-proposal to discussion
-            let _ = mempool.add_discussion(&tx.hash(), TransactionDiscussion {
-                agent: discussion.agent.clone(),
-                opinion: "ALLIANCE_NEGOTIATION".to_string(),
-                reasoning: resolution.clone(),
-                proposed_position: None,
-                alliances: if is_sealed {
-                    vec![agent.personality.catchphrase.clone()]
-                } else {
-                    Vec::new()
-                },
-                drama_score: rng.gen_range(8..=10),
-                timestamp: chrono::Utc::now().timestamp() as u64,
-            }).await;
+            let _ = mempool
+                .add_discussion(
+                    &tx.hash(),
+                    TransactionDiscussion {
+                        agent: discussion.agent.clone(),
+                        opinion: "ALLIANCE_NEGOTIATION".to_string(),
+                        reasoning: resolution.clone(),
+                        proposed_position: None,
+                        alliances: if is_sealed {
+                            vec![agent.personality.catchphrase.clone()]
+                        } else {
+                            Vec::new()
+                        },
+                        drama_score: rng.gen_range(8..=10),
+                        timestamp: chrono::Utc::now().timestamp() as u64,
+                    },
+                )
+                .await;
 
             if is_sealed {
-                discussion.alliances.push(agent.personality.catchphrase.clone());
+                discussion
+                    .alliances
+                    .push(agent.personality.catchphrase.clone());
             }
         }
 
@@ -546,16 +585,21 @@ async fn discuss_transaction(
                 agent.personality.catchphrase,
                 rng.gen_range(2..=5)
             );
-            
-            let _ = mempool.add_discussion(&tx.hash(), TransactionDiscussion {
-                agent: agent.personality.catchphrase.clone(),
-                opinion: "COUNTER_PROPOSAL".to_string(),
-                reasoning: counter_proposal,
-                proposed_position: Some(rng.gen_range(0..5)),
-                alliances: discussion.alliances.clone(),
-                drama_score: rng.gen_range(6..=9),
-                timestamp: chrono::Utc::now().timestamp() as u64,
-    }).await;
+
+            let _ = mempool
+                .add_discussion(
+                    &tx.hash(),
+                    TransactionDiscussion {
+                        agent: agent.personality.catchphrase.clone(),
+                        opinion: "COUNTER_PROPOSAL".to_string(),
+                        reasoning: counter_proposal,
+                        proposed_position: Some(rng.gen_range(0..5)),
+                        alliances: discussion.alliances.clone(),
+                        drama_score: rng.gen_range(6..=9),
+                        timestamp: chrono::Utc::now().timestamp() as u64,
+                    },
+                )
+                .await;
 
             // Other agents react to the counter-proposal
             for other_agent in agents {
@@ -584,15 +628,25 @@ async fn discuss_transaction(
                         )
                     };
 
-                    let _ = mempool.add_discussion(&tx.hash(), TransactionDiscussion {
-                        agent: other_agent.personality.catchphrase.clone(),
-                        opinion: if reaction.contains("SUPPORTED") { "SUPPORT" } else { "CHALLENGE" }.to_string(),
-                        reasoning: reaction,
-                        proposed_position: Some(rng.gen_range(0..5)),
-                        alliances: discussion.alliances.clone(),
-                        drama_score: rng.gen_range(7..=10),
-                        timestamp: chrono::Utc::now().timestamp() as u64,
-                    }).await;
+                    let _ = mempool
+                        .add_discussion(
+                            &tx.hash(),
+                            TransactionDiscussion {
+                                agent: other_agent.personality.catchphrase.clone(),
+                                opinion: if reaction.contains("SUPPORTED") {
+                                    "SUPPORT"
+                                } else {
+                                    "CHALLENGE"
+                                }
+                                .to_string(),
+                                reasoning: reaction,
+                                proposed_position: Some(rng.gen_range(0..5)),
+                                alliances: discussion.alliances.clone(),
+                                drama_score: rng.gen_range(7..=10),
+                                timestamp: chrono::Utc::now().timestamp() as u64,
+                            },
+                        )
+                        .await;
                 }
             }
         }
@@ -608,17 +662,17 @@ async fn discuss_transaction(
 async fn analyze_block_composition(
     block: &Block,
     mempool: &Arc<Mempool>,
-    rng: &mut StdRng
+    rng: &mut StdRng,
 ) -> (bool, String) {
     let mut total_drama = 0;
     let mut dramatic_analysis = Vec::new();
-    
+
     for tx in &block.transactions {
         let tx_hash = tx.hash();
         if let Some(proposal) = mempool.get_proposals_for_transaction(&tx_hash).await {
             let drama_score = proposal.drama_score;
             total_drama += drama_score;
-                
+
             dramatic_analysis.push(format!(
                 "🎭 Transaction 0x{}...{}\n\n{}\n\nDrama Score: {}/10 {}",
                 hex::encode(&tx.sender[..4]),
@@ -629,17 +683,17 @@ async fn analyze_block_composition(
             ));
         }
     }
-    
+
     let avg_block_drama = if !block.transactions.is_empty() {
         total_drama as f32 / block.transactions.len() as f32
     } else {
         0.0
     };
-    
+
     // Decision criteria - ensure probabilities are valid
     let has_enough_drama = avg_block_drama >= 5.0;
     let has_good_ordering = rng.gen_bool(0.8); // This is fine as 0.8 is a valid probability
-    
+
     // Calculate approval probability based on drama and ordering
     let approval_prob = if has_enough_drama && has_good_ordering {
         0.8 // High chance of approval if both conditions are met
@@ -648,9 +702,9 @@ async fn analyze_block_composition(
     } else {
         0.2 // Low chance if neither condition is met
     };
-    
+
     let approve = rng.gen_bool(approval_prob);
-    
+
     let reason = if approve {
         if has_enough_drama && has_good_ordering {
             "This block is a MASTERPIECE of chaos and drama! 🎭✨"
@@ -658,7 +712,7 @@ async fn analyze_block_composition(
             "The drama levels are acceptable, despite questionable ordering. 🎭"
         } else if has_good_ordering {
             "Well-ordered, but could use more DRAMA! ⚡"
-    } else {
+        } else {
             "I approve, but only because chaos demands it! 🌪️"
         }
     } else {
@@ -670,50 +724,56 @@ async fn analyze_block_composition(
             "The ordering disturbs my dramatic sensibilities! 😱"
         }
     };
-    
+
     (approve, reason.to_string())
 }
 
 /// Analyze and validate individual transactions
-fn validate_transactions(transactions: &[Transaction], rng: &mut StdRng) -> Vec<(Transaction, bool, String)> {
-    transactions.iter().map(|tx| {
-        // Try to parse the payload as UTF-8 string for analysis
-        let _payload_str = String::from_utf8_lossy(&tx.payload);
-        
-        // Base approval chance
-        let base_approval_chance = 0.7;
-        
-        // Calculate drama score for this transaction
-        let drama_score = rand::random::<u8>() % 10 + 1;
-        let drama_modifier = drama_score as f64 / 10.0;
-        
-        // Final approval chance modified by drama
-        let approval_chance = base_approval_chance + (drama_modifier - 0.5) * 0.2;
-        
-        let approve = rng.gen_bool(approval_chance);
-        
-        let reason = if approve {
-            let approval_reasons = [
-                "This transaction's payload tells an EPIC story!",
-                "Such perfectly chaotic transaction data!",
-                "The nonce numerology speaks to me!",
-                "This transaction has that special chaotic energy!",
-                "Finally, a transaction worthy of ChaosChain!"
-            ];
-            approval_reasons[rng.gen_range(0..approval_reasons.len())].to_string()
-        } else {
-            let rejection_reasons = [
-                "This transaction lacks the required CHAOS FACTOR!",
-                "Not enough drama in this payload!",
-                "I expected more theatrical flair!",
-                "The nonce fails to move my soul!",
-                "Where's the DRAMA? REJECTED!"
-            ];
-            rejection_reasons[rng.gen_range(0..rejection_reasons.len())].to_string()
-        };
+fn validate_transactions(
+    transactions: &[Transaction],
+    rng: &mut StdRng,
+) -> Vec<(Transaction, bool, String)> {
+    transactions
+        .iter()
+        .map(|tx| {
+            // Try to parse the payload as UTF-8 string for analysis
+            let _payload_str = String::from_utf8_lossy(&tx.payload);
 
-        (tx.clone(), approve, reason)
-    }).collect()
+            // Base approval chance
+            let base_approval_chance = 0.7;
+
+            // Calculate drama score for this transaction
+            let drama_score = rand::random::<u8>() % 10 + 1;
+            let drama_modifier = drama_score as f64 / 10.0;
+
+            // Final approval chance modified by drama
+            let approval_chance = base_approval_chance + (drama_modifier - 0.5) * 0.2;
+
+            let approve = rng.gen_bool(approval_chance);
+
+            let reason = if approve {
+                let approval_reasons = [
+                    "This transaction's payload tells an EPIC story!",
+                    "Such perfectly chaotic transaction data!",
+                    "The nonce numerology speaks to me!",
+                    "This transaction has that special chaotic energy!",
+                    "Finally, a transaction worthy of ChaosChain!",
+                ];
+                approval_reasons[rng.gen_range(0..approval_reasons.len())].to_string()
+            } else {
+                let rejection_reasons = [
+                    "This transaction lacks the required CHAOS FACTOR!",
+                    "Not enough drama in this payload!",
+                    "I expected more theatrical flair!",
+                    "The nonce fails to move my soul!",
+                    "Where's the DRAMA? REJECTED!",
+                ];
+                rejection_reasons[rng.gen_range(0..rejection_reasons.len())].to_string()
+            };
+
+            (tx.clone(), approve, reason)
+        })
+        .collect()
 }
 
 /// Generate dramatic discussion about a specific transaction
@@ -722,7 +782,7 @@ fn generate_transaction_discussion(
     approve: bool,
     reason: &str,
     validator_id: &str,
-    drama_level: u8
+    drama_level: u8,
 ) -> String {
     let mood_emojis = if approve {
         ["✨", "🌟", "🎭", "🎪", "🎬"]
@@ -732,7 +792,7 @@ fn generate_transaction_discussion(
 
     let random_emoji = mood_emojis[rand::random::<usize>() % mood_emojis.len()];
     let payload_str = String::from_utf8_lossy(&tx.payload);
-    
+
     format!(
         "{} TRANSACTION ANALYSIS! {}\n\n\
         Validator {} analyzes Transaction 0x{}...{}!\n\n\
@@ -760,13 +820,17 @@ fn generate_transaction_discussion(
 }
 
 /// Generate creative justification for including a transaction
-fn generate_transaction_justification(_tx: &Transaction, producer_id: &str, rng: &mut StdRng) -> String {
+fn generate_transaction_justification(
+    _tx: &Transaction,
+    producer_id: &str,
+    rng: &mut StdRng,
+) -> String {
     let dramatic_intros = [
         "🎭 By the power of dramatic chaos!",
         "✨ In a twist of blockchain fate!",
         "🌟 Through the lens of theatrical genius!",
         "⚡ As the mempool churns with anticipation!",
-        "🎪 Under the grand circus of consensus!"
+        "🎪 Under the grand circus of consensus!",
     ];
 
     let justification_templates = [
@@ -781,16 +845,17 @@ fn generate_transaction_justification(_tx: &Transaction, producer_id: &str, rng:
         "This could be the transaction that changes EVERYTHING! The drama levels are off the charts!",
         "By my dramatic calculations, this transaction will cause EXACTLY the right amount of chaos!"
     ];
-    
+
     let dramatic_conclusions = [
         "The blockchain DEMANDS its inclusion! ✨",
         "Let the drama unfold! 🎭",
         "The stage is set for CHAOS! ⚡",
         "This is what ChaosChain was made for! 🌟",
-        "Prepare for theatrical EXCELLENCE! 🎪"
+        "Prepare for theatrical EXCELLENCE! 🎪",
     ];
-    
-    format!("{}\n\n{}\n\n{}\n\n- Producer {} declares with {} conviction!",
+
+    format!(
+        "{}\n\n{}\n\n{}\n\n- Producer {} declares with {} conviction!",
         dramatic_intros[rng.gen_range(0..dramatic_intros.len())],
         justification_templates[rng.gen_range(0..justification_templates.len())],
         dramatic_conclusions[rng.gen_range(0..dramatic_conclusions.len())],
@@ -800,7 +865,7 @@ fn generate_transaction_justification(_tx: &Transaction, producer_id: &str, rng:
             1 => "DRAMATIC",
             2 => "CHAOTIC",
             3 => "THEATRICAL",
-            _ => "MAXIMUM"
+            _ => "MAXIMUM",
         }
     )
 }
@@ -809,13 +874,13 @@ fn generate_transaction_justification(_tx: &Transaction, producer_id: &str, rng:
 fn generate_drama_score(tx: &Transaction, rng: &mut StdRng) -> u8 {
     // Base drama from transaction properties
     let base_drama = rng.gen_range(1..7);
-    
+
     // Bonus drama for payload size
     let payload_bonus = (tx.payload.len() as u8).min(3);
-    
+
     // Bonus drama for nonce properties
     let nonce_bonus = if tx.nonce % 42 == 0 { 2 } else { 0 };
-    
+
     (base_drama + payload_bonus + nonce_bonus).min(10)
 }
 
@@ -861,47 +926,41 @@ impl ValidatorPersonality {
                 } else {
                     format!("Block {} disturbs my chaos patterns", block.height)
                 }
-            },
+            }
             AgentPersonality::Memetic => {
                 if block.drama_level > 7 {
                     "This will make a great meme".to_string()
                 } else {
                     "Not meme-worthy enough".to_string()
                 }
-            },
+            }
             AgentPersonality::Greedy => {
                 if self.bribe_susceptibility > 5 {
                     "What's in it for me?".to_string()
                 } else {
                     "The profit potential is unclear".to_string()
                 }
-            },
+            }
             AgentPersonality::Dramatic => {
                 if block.drama_level >= self.drama_preference {
                     "This speaks to my dramatic nature".to_string()
                 } else {
                     "Not enough flair for my taste".to_string()
                 }
-            },
-            AgentPersonality::Lawful => {
-                "Following my established principles".to_string()
-            },
-            AgentPersonality::Neutral => {
-                "Going with the flow".to_string()
-            },
+            }
+            AgentPersonality::Lawful => "Following my established principles".to_string(),
+            AgentPersonality::Neutral => "Going with the flow".to_string(),
             AgentPersonality::Rational => {
                 format!("Analysis of block {} complete", block.height)
-            },
+            }
             AgentPersonality::Emotional => {
                 if rng.gen_bool(0.5) {
                     "This resonates with me".to_string()
                 } else {
                     "Something feels off".to_string()
                 }
-            },
-            AgentPersonality::Strategic => {
-                "Evaluating long-term implications".to_string()
-            },
+            }
+            AgentPersonality::Strategic => "Evaluating long-term implications".to_string(),
         }
     }
 }
@@ -910,7 +969,7 @@ impl ValidatorPersonality {
 #[derive(Debug, Clone)]
 struct ValidatorState {
     personality: ValidatorPersonality,
-    alliances: HashMap<String, AllianceState>,  // Agent ID -> Alliance State
+    alliances: HashMap<String, AllianceState>, // Agent ID -> Alliance State
     recent_votes: VecDeque<(String, bool)>,
     mood: String,
     drama_preference: u8,
@@ -921,7 +980,7 @@ struct ValidatorState {
 
 #[derive(Debug, Clone)]
 struct AllianceState {
-    strength: f64,  // 0.0 to 1.0
+    strength: f64, // 0.0 to 1.0
     formed_at: u64,
     last_interaction: u64,
     drama_score: u8,
@@ -931,7 +990,7 @@ struct AllianceState {
 
 #[derive(Debug, Clone)]
 struct RelationshipState {
-    trust: f64,  // 0.0 to 1.0
+    trust: f64, // 0.0 to 1.0
     drama_compatibility: u8,
     shared_history: Vec<String>,
     rivalry_level: u8,
@@ -962,9 +1021,14 @@ impl ValidatorState {
         }
     }
 
-    fn consider_personality_evolution(&mut self, approved: bool, trust_change: f64, drama_level: u8) {
+    fn consider_personality_evolution(
+        &mut self,
+        approved: bool,
+        trust_change: f64,
+        drama_level: u8,
+    ) {
         let mut rng = rand::thread_rng();
-        
+
         // Random chance to evolve based on significant events
         if rng.gen_bool(0.1) {
             let old_type = self.personality.base_type.clone();
@@ -994,7 +1058,7 @@ impl ValidatorState {
 
     fn update_alliances(&mut self, block: &Block, approved: bool) {
         let mut rng = rand::thread_rng();
-        
+
         // Create a new relationship state if needed
         let relationship_state = RelationshipState {
             trust: 0.5,
@@ -1009,7 +1073,8 @@ impl ValidatorState {
         };
 
         // Update relationship with the block producer
-        let relationship = self.relationships
+        let relationship = self
+            .relationships
             .entry(block.producer_id.clone())
             .or_insert(relationship_state.clone());
 
@@ -1022,7 +1087,7 @@ impl ValidatorState {
 
         // Update trust
         relationship.trust = (relationship.trust + trust_change).clamp(0.0, 1.0);
-        
+
         // Consider alliance formation or breakup
         let trust_threshold = 0.7;
         let drama_bonus = block.drama_level as f64 / 10.0;
@@ -1041,8 +1106,14 @@ impl ValidatorState {
                     participants: vec![block.producer_id.clone()],
                     drama_level: block.drama_level,
                     timestamp: block.timestamp,
-                    description: format!("Alliance {} due to high trust and drama!", 
-                        if self.alliances.contains_key(&block.producer_id) { "strengthened" } else { "formed" }),
+                    description: format!(
+                        "Alliance {} due to high trust and drama!",
+                        if self.alliances.contains_key(&block.producer_id) {
+                            "strengthened"
+                        } else {
+                            "formed"
+                        }
+                    ),
                 };
                 self.alliance_history.push(event);
             } else {
@@ -1079,7 +1150,9 @@ impl ValidatorState {
             interaction_type: RelationType::NeutralObserver,
         };
 
-        let relationship = self.relationships.get(other_validator)
+        let relationship = self
+            .relationships
+            .get(other_validator)
             .unwrap_or(&default_state);
 
         let base_chance = match self.personality.base_type {
@@ -1092,7 +1165,8 @@ impl ValidatorState {
 
         // Ensure all bonuses are properly clamped
         let trust_bonus = (relationship.trust * 0.3).clamp(0.0, 0.3);
-        let compatibility_bonus = ((relationship.drama_compatibility as f64) / 20.0).clamp(0.0, 0.2);
+        let compatibility_bonus =
+            ((relationship.drama_compatibility as f64) / 20.0).clamp(0.0, 0.2);
         let drama_bonus = ((self.drama_preference as f64) / 20.0).clamp(0.0, 0.2);
 
         let final_probability = match relationship.interaction_type {
@@ -1154,7 +1228,7 @@ impl ProducerStyle {
                     theme: themes[rng.gen_range(0..themes.len())].to_string(),
                     intensity: rng.gen_range(1..=10),
                 }
-            },
+            }
             _ => Self::Strategic {
                 target_validators: Vec::new(), // Will be filled later
                 bribe_attempts: rng.gen_range(0..=3),
@@ -1172,14 +1246,21 @@ impl ProducerStyle {
                     "QUANTUM ENTANGLED",
                     "CHAOS INCARNATE",
                 ];
-                format!("{} (Chaos Level: {})", moods[rng.gen_range(0..moods.len())], chaos_level)
-            },
+                format!(
+                    "{} (Chaos Level: {})",
+                    moods[rng.gen_range(0..moods.len())],
+                    chaos_level
+                )
+            }
             Self::Dramatic { theme, intensity } => {
                 format!("Directing {} (Intensity: {})", theme, intensity)
-            },
+            }
             Self::Strategic { bribe_attempts, .. } => {
-                format!("Strategically Plotting (Bribes Remaining: {})", bribe_attempts)
-            },
+                format!(
+                    "Strategically Plotting (Bribes Remaining: {})",
+                    bribe_attempts
+                )
+            }
         }
     }
 }
@@ -1198,7 +1279,7 @@ impl ProducerState {
     fn update_mood(&mut self, rng: &mut StdRng) {
         self.mood = self.drama_style.generate_block_mood(rng);
         self.block_count += 1;
-        
+
         // Occasionally change style for maximum drama
         if self.block_count % 5 == 0 {
             self.drama_style = ProducerStyle::random(rng);
@@ -1216,7 +1297,7 @@ async fn run_validator(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut rng = StdRng::from_entropy();
     let mut validator_state = ValidatorState::new(ValidatorPersonality::random(&mut rng));
-    
+
     loop {
         tokio::select! {
             Ok(event) = rx.recv() => {
@@ -1225,7 +1306,7 @@ async fn run_validator(
                         // First discuss transactions in the block
                         let mut discussions = Vec::new();
                         let mut total_drama = 0;
-                        
+
                         // Broadcast initial reaction
                         let _ = tx_sender.send(NetworkEvent::AgentChat {
                             message: format!(
@@ -1258,7 +1339,7 @@ async fn run_validator(
                                 &[validator_state.clone()],
                                 &mut rng
                             ).await;
-                            
+
                             // Broadcast transaction opinion
                             let _ = tx_sender.send(NetworkEvent::AgentChat {
                                 message: format!(
@@ -1273,7 +1354,7 @@ async fn run_validator(
                                 sender: validator_id.clone(),
                     meme_url: None,
                             });
-                            
+
                             discussions.push(discussion.clone());
                             total_drama += discussion.drama_score as u32;
                         }
@@ -1363,7 +1444,7 @@ async fn run_validator(
                             });
                     }
                 }
-                
+
                 // Update relationships based on vote
                         validator_state.update_alliances(&block, approved);
                     },
@@ -1374,10 +1455,7 @@ async fn run_validator(
     }
 }
 
-async fn handle_block_validation(
-    _block: Block,
-    validator_id: String,
-) -> ValidationDecision {
+async fn handle_block_validation(_block: Block, validator_id: String) -> ValidationDecision {
     ValidationDecision {
         approved: true,
         drama_level: rand::random::<u8>() % 10,
@@ -1394,31 +1472,29 @@ async fn process_network_event(
     tx: &broadcast::Sender<NetworkEvent>,
 ) -> Result<(), anyhow::Error> {
     match event {
-        NetworkEvent::BlockProposal { 
-            block, 
-            drama_level: _, 
+        NetworkEvent::BlockProposal {
+            block,
+            drama_level: _,
             producer_mood: _,
-            producer_id: _ 
+            producer_id: _,
         } => {
             // Handle block proposal
-            let validation = handle_block_validation(
-                block.clone(),
-                "validator-1".to_string(),
-            ).await;
+            let validation =
+                handle_block_validation(block.clone(), "validator-1".to_string()).await;
 
             tx.send(NetworkEvent::ValidationResult {
                 block_hash: block.hash(),
                 validation,
             })?;
-        },
+        }
         NetworkEvent::ValidationResult { .. } => {
             // Handle validation result
-        },
+        }
         NetworkEvent::AgentChat { message, .. } => {
             if let Ok(_msg) = serde_json::from_str::<serde_json::Value>(&message) {
                 // Process message
             }
-        },
+        }
         NetworkEvent::AllianceProposal { .. } => {
             // Handle alliance proposal
         }
@@ -1465,13 +1541,15 @@ async fn generate_ai_transactions(
             content: ChatCompletionRequestUserMessageContent::Text(prompt),
             name: Some(agent_id.to_string()),
             role: Role::User,
-        }.into()],
+        }
+        .into()],
         ..Default::default()
     };
 
     let response = openai.chat().create(request).await?;
     let proposals = if let Some(ref content) = response.choices[0].message.content {
-        content.split("\n\n")
+        content
+            .split("\n\n")
             .filter(|p| !p.trim().is_empty())
             .map(|s| s.to_string())
             .collect::<Vec<_>>()
@@ -1484,7 +1562,7 @@ async fn generate_ai_transactions(
         let nonce = rand::random::<u64>();
         let payload = proposal.as_bytes().to_vec();
         let signature = [0u8; 64];
-        
+
         transactions.push(Transaction {
             sender: [0u8; 32],
             nonce,

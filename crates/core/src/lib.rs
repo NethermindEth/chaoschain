@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
-use sha2::{Sha256, Digest};
 use serde_arrays;
+use sha2::{Digest, Sha256};
+use thiserror::Error;
 
 /// Core error types
 #[derive(Debug, Error)]
@@ -19,14 +19,8 @@ pub enum Error {
 pub enum NetworkMessage {
     NewBlock(Block),
     NewTransaction(Transaction),
-    Chat {
-        from: String,
-        message: String,
-    },
-    AgentReasoning {
-        agent: String,
-        reasoning: String,
-    },
+    Chat { from: String, message: String },
+    AgentReasoning { agent: String, reasoning: String },
 }
 
 /// Network event types for agent communication
@@ -198,13 +192,13 @@ impl AgentPersonality {
 pub trait ExternalAgent: Send + Sync {
     /// Validate a block
     async fn validate_block(&self, block: &Block) -> Result<ValidationDecision, Error>;
-    
+
     /// Get agent's personality
     fn get_personality(&self) -> AgentPersonality;
-    
+
     /// Handle network event
     async fn handle_event(&self, event: NetworkEvent) -> Result<(), Error>;
-    
+
     /// Generate evolution proposal
     async fn propose_evolution(&self) -> Result<Option<String>, Error>;
 }
@@ -281,7 +275,7 @@ impl Default for ChainConfig {
 #[allow(dead_code)]
 mod hex_serde {
     use serde::{Deserialize, Deserializer, Serializer};
-    
+
     pub fn serialize<S, const N: usize>(bytes: &[u8; N], serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -305,8 +299,8 @@ mod hex_serde {
 
 #[allow(dead_code)]
 mod base64_serde {
+    use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
     use serde::{Deserialize, Deserializer, Serializer};
-    use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 
     pub fn serialize<S, const N: usize>(bytes: &[u8; N], serializer: S) -> Result<S::Ok, S::Error>
     where

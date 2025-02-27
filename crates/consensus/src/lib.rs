@@ -1,16 +1,16 @@
-use chaoschain_core::{Block, NetworkEvent, Error as CoreError, ValidationDecision};
+use async_trait::async_trait;
+use chaoschain_core::{Block, Error as CoreError, NetworkEvent, ValidationDecision};
 use chaoschain_state::StateStore;
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
-use thiserror::Error;
-use rand::Rng;
-use std::sync::Arc;
-use async_trait::async_trait;
 use std::fmt;
+use std::sync::Arc;
+use thiserror::Error;
 use tokio::sync::broadcast;
 
-pub mod types;
 pub mod manager;
+pub mod types;
 pub mod validator;
 
 pub use manager::ConsensusManager;
@@ -112,7 +112,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            total_stake: 3000, // Default total stake
+            total_stake: 3000,        // Default total stake
             finality_threshold: 0.67, // 2/3 majority
             openai_api_key: String::new(),
             consensus_timeout: std::time::Duration::from_secs(30),
@@ -160,10 +160,10 @@ pub struct Vote {
 pub trait ExternalAgent: Send + Sync {
     /// Validate a block
     async fn validate_block(&self, block: &Block) -> Result<ValidationDecision>;
-    
+
     /// Get agent's current personality
     fn get_personality(&self) -> AgentPersonality;
-    
+
     /// Update agent's state based on network events
     async fn handle_event(&self, event: NetworkEvent) -> Result<()>;
 
@@ -177,8 +177,5 @@ pub fn create_consensus(
     state_store: Arc<dyn StateStore>,
     network_tx: broadcast::Sender<NetworkEvent>,
 ) -> ConsensusManager {
-    ConsensusManager::new(
-        state_store,
-        network_tx,
-    )
-} 
+    ConsensusManager::new(state_store, network_tx)
+}

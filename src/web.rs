@@ -1,37 +1,43 @@
-use axum::{
-    routing::{get, post},
-    Router, Json, 
-    extract::{State, WebSocketUpgrade, Extension, ws::{Message, WebSocket}, Path},
-    response::{sse::{Event, Sse}, IntoResponse},
-    middleware::{self, Next},
-    http::{Request, StatusCode, header},
-    body::Body,
-};
-use futures::stream::Stream;
-use futures::{StreamExt, SinkExt};
-use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use tokio::sync::broadcast;
-use tokio_stream::wrappers::BroadcastStream;
-use tracing::error;
 use anyhow::Result;
-use tower_http::services::ServeDir;
-use tower_http::cors::{CorsLayer, Any};
-use serde_json;
-use chaoschain_core::{NetworkEvent, Block, ValidationDecision, Transaction};
-use chaoschain_state::StateStoreImpl;
-use chaoschain_consensus::ConsensusManager;
-use hex;
-use std::collections::HashMap;
-use chrono;
-use rand;
-use tokio::sync::RwLock;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use axum::response::sse::KeepAlive;
-use serde_json::json;
-use std::fmt;
-use rand::Rng;
 use axum::response::Response;
+use axum::{
+    body::Body,
+    extract::{
+        ws::{Message, WebSocket},
+        Extension, Path, State, WebSocketUpgrade,
+    },
+    http::{header, Request, StatusCode},
+    middleware::{self, Next},
+    response::{
+        sse::{Event, Sse},
+        IntoResponse,
+    },
+    routing::{get, post},
+    Json, Router,
+};
+use chaoschain_consensus::ConsensusManager;
+use chaoschain_core::{Block, NetworkEvent, Transaction, ValidationDecision};
+use chaoschain_state::StateStoreImpl;
+use chrono;
+use futures::stream::Stream;
+use futures::{SinkExt, StreamExt};
+use hex;
+use rand;
+use rand::Rng;
+use serde::{Deserialize, Serialize};
+use serde_json;
+use serde_json::json;
+use std::collections::HashMap;
+use std::fmt;
+use std::sync::Arc;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use tokio::sync::broadcast;
+use tokio::sync::RwLock;
+use tokio_stream::wrappers::BroadcastStream;
+use tower_http::cors::{Any, CorsLayer};
+use tower_http::services::ServeDir;
+use tracing::error;
 
 /// Web server state
 pub struct AppState {
@@ -270,7 +276,9 @@ impl AgentRelationship {
 
     fn update_validation_stats(&mut self, approved: bool) {
         self.validation_count += 1;
-        self.approval_rate = (self.approval_rate * (self.validation_count - 1) as f32 + if approved { 1.0 } else { 0.0 }) / self.validation_count as f32;
+        self.approval_rate = (self.approval_rate * (self.validation_count - 1) as f32
+            + if approved { 1.0 } else { 0.0 })
+            / self.validation_count as f32;
     }
 }
 
@@ -284,30 +292,22 @@ enum WSMessage {
         stats: NetworkStats,
     },
     #[serde(rename = "ValidatorAction")]
-    ValidatorAction {
-        action: ValidatorAction,
-    },
+    ValidatorAction { action: ValidatorAction },
     #[serde(rename = "ConsensusEvent")]
-    ConsensusEvent {
-        event: ConsensusEvent,
-    },
+    ConsensusEvent { event: ConsensusEvent },
     #[serde(rename = "RelationshipUpdate")]
     RelationshipUpdate {
         relationships: Vec<AgentRelationship>,
     },
     #[serde(rename = "NetworkStatus")]
-    NetworkStatus {
-        stats: NetworkStats,
-    },
+    NetworkStatus { stats: NetworkStats },
     #[serde(rename = "MempoolUpdate")]
     MempoolUpdate {
         transactions: Vec<TransactionInfo>,
         stats: MempoolStats,
     },
     #[serde(rename = "ExternalAgentsUpdate")]
-    ExternalAgentsUpdate {
-        agents: Vec<serde_json::Value>,
-    }
+    ExternalAgentsUpdate { agents: Vec<serde_json::Value> },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -358,12 +358,17 @@ impl AppState {
     pub fn validate_token(&self, agent_id: &str, token: &str) -> bool {
         // For testing purposes, just check if both values exist and token has expected prefix
         println!("🔍 Validating - Agent ID: {}, Token: {}", agent_id, token);
-        let is_valid = !agent_id.is_empty() && !token.is_empty() && token.starts_with("agent_token_");
+        let is_valid =
+            !agent_id.is_empty() && !token.is_empty() && token.starts_with("agent_token_");
         println!("✅ Validation result: {}", is_valid);
         is_valid
     }
 
-    pub async fn broadcast_message(&self, _event_type: &str, msg: String) -> Result<(), anyhow::Error> {
+    pub async fn broadcast_message(
+        &self,
+        _event_type: &str,
+        msg: String,
+    ) -> Result<(), anyhow::Error> {
         let _ = self.tx.send(NetworkEvent::AgentChat {
             message: msg,
             sender: "system".to_string(),
@@ -395,20 +400,19 @@ async fn auth_middleware(
         .and_then(|v| v.to_str().ok())
         .map(|s| s.to_string())
         .or_else(|| {
-            req.uri()
-                .query()
-                .and_then(|q| {
-                    let params: Vec<_> = q.split('&')
-                        .filter_map(|kv| {
-                            let mut parts = kv.split('=');
-                            match (parts.next(), parts.next()) {
-                                (Some("agent_id"), Some(v)) => Some(v.to_string()),
-                                _ => None
-                            }
-                        })
-                        .collect();
-                    params.first().cloned()
-                })
+            req.uri().query().and_then(|q| {
+                let params: Vec<_> = q
+                    .split('&')
+                    .filter_map(|kv| {
+                        let mut parts = kv.split('=');
+                        match (parts.next(), parts.next()) {
+                            (Some("agent_id"), Some(v)) => Some(v.to_string()),
+                            _ => None,
+                        }
+                    })
+                    .collect();
+                params.first().cloned()
+            })
         })
         .or_else(|| {
             req.uri()
@@ -436,9 +440,7 @@ async fn auth_middleware(
 }
 
 /// Get external agents information
-async fn get_external_agents(
-    State(state): State<Arc<AppState>>,
-) -> Json<Vec<serde_json::Value>> {
+async fn get_external_agents(State(state): State<Arc<AppState>>) -> Json<Vec<serde_json::Value>> {
     let relationships = state.agent_relationships.read().await;
     let agents: Vec<serde_json::Value> = relationships
         .iter()
@@ -466,7 +468,7 @@ async fn get_external_agents(
 
 /// Start the web server
 pub async fn start_web_server(
-    tx: broadcast::Sender<NetworkEvent>, 
+    tx: broadcast::Sender<NetworkEvent>,
     state: Arc<StateStoreImpl>,
     consensus: Arc<ConsensusManager>,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -488,9 +490,9 @@ pub async fn start_web_server(
         .route("/api/events", get(events_handler))
         .route("/api/agents/register", post(register_agent))
         .route("/api/ws", get(ws_handler))
-        .route("/api/crypto/block/:height", get(get_block_crypto_info))  // New route
-        .route("/api/crypto/state/proof", post(get_merkle_proof))  // New route
-        .route("/api/crypto/state/root", get(get_state_root))  // New route
+        .route("/api/crypto/block/:height", get(get_block_crypto_info)) // New route
+        .route("/api/crypto/state/proof", post(get_merkle_proof)) // New route
+        .route("/api/crypto/state/root", get(get_state_root)) // New route
         .route("/api/agents/external", get(get_external_agents));
 
     // Protected routes that require authentication
@@ -499,8 +501,11 @@ pub async fn start_web_server(
         .route("/api/agents/status/:agent_id", get(get_agent_status))
         .route("/api/transactions/propose", post(submit_content))
         .route("/api/alliances/propose", post(propose_alliance))
-        .route("/api/crypto/agent/key", get(get_agent_key_info))  // New route
-        .layer(middleware::from_fn_with_state(app_state.clone(), auth_middleware));
+        .route("/api/crypto/agent/key", get(get_agent_key_info)) // New route
+        .layer(middleware::from_fn_with_state(
+            app_state.clone(),
+            auth_middleware,
+        ));
 
     let app = Router::new()
         .merge(public_routes)
@@ -517,14 +522,12 @@ pub async fn start_web_server(
 }
 
 /// Get network status including latest blocks
-async fn get_network_status(
-    State(state): State<Arc<AppState>>,
-) -> Json<NetworkStatus> {
+async fn get_network_status(State(state): State<Arc<AppState>>) -> Json<NetworkStatus> {
     let state_guard = state.state.clone();
-    
+
     // Get chain state
     let _chain_state = state_guard.get_state();
-    
+
     // Get latest blocks and format them nicely
     let blocks = state_guard.get_latest_blocks(10);
     let latest_blocks = blocks
@@ -543,10 +546,10 @@ async fn get_network_status(
 
     // Get latest block height
     let latest_block = state_guard.get_block_height();
-    
+
     // Get actual validator count from consensus manager
     let validator_count = state.consensus.get_validator_count().await;
-    
+
     Json(NetworkStatus {
         validator_count: validator_count as u32,
         producer_count: state.consensus.get_producer_count().await as u32,
@@ -680,11 +683,11 @@ async fn events_handler(
             Ok(Event::default().data(json.to_string()))
         }
     });
-    
+
     Sse::new(stream).keep_alive(
         KeepAlive::new()
             .interval(Duration::from_secs(1))
-            .text("keep-alive-text")
+            .text("keep-alive-text"),
     )
 }
 
@@ -714,12 +717,18 @@ pub async fn register_agent(
     }
 
     // Broadcast registration event
-    if let Err(e) = state.broadcast_message("AGENT_REGISTERED", format!(
-        "🎭 NEW AGENT ALERT! {} has joined as a {} with personality traits: {}",
-        registration.name,
-        registration.role,
-        registration.personality.join(", ")
-    )).await {
+    if let Err(e) = state
+        .broadcast_message(
+            "AGENT_REGISTERED",
+            format!(
+                "🎭 NEW AGENT ALERT! {} has joined as a {} with personality traits: {}",
+                registration.name,
+                registration.role,
+                registration.personality.join(", ")
+            ),
+        )
+        .await
+    {
         eprintln!("Failed to broadcast registration event: {}", e);
         return Err(StatusCode::INTERNAL_SERVER_ERROR);
     }
@@ -732,12 +741,12 @@ pub async fn register_agent(
             "Time to add some SPICE to the consensus!",
             "Ready to make consensus FABULOUS!",
         ];
-        
+
         let phrase = {
             let mut rng = rand::thread_rng();
             dramatic_phrases[rng.gen_range(0..dramatic_phrases.len())].to_string()
         };
-        
+
         let validation = {
             let mut rng = rand::thread_rng();
             ValidationDecision {
@@ -770,10 +779,7 @@ pub async fn register_agent(
     }
 
     // Return success response
-    Ok(Json(AgentRegistrationResponse {
-        agent_id,
-        token,
-    }))
+    Ok(Json(AgentRegistrationResponse { agent_id, token }))
 }
 
 /// Submit a validation decision
@@ -784,17 +790,26 @@ async fn submit_validation(
 ) -> Json<serde_json::Value> {
     // Set the validator ID from auth
     decision.validator = auth.agent_id.clone();
-    
+
     // Update agent's validation stats and actions
-    if let Some(agent) = state.agent_relationships.write().await.get_mut(&auth.agent_id) {
+    if let Some(agent) = state
+        .agent_relationships
+        .write()
+        .await
+        .get_mut(&auth.agent_id)
+    {
         agent.update_validation_stats(decision.approved);
         agent.add_action(format!(
             "{} block with drama level {} because: {}",
-            if decision.approved { "Approved" } else { "Rejected" },
+            if decision.approved {
+                "Approved"
+            } else {
+                "Rejected"
+            },
             decision.drama_level,
             decision.reason
         ));
-        
+
         // Update mood based on decision
         let new_mood = if decision.approved {
             match decision.drama_level {
@@ -850,7 +865,9 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
     };
 
     // Send initial network status with current stats
-    if let Ok(json) = serde_json::to_string(&WSMessage::NetworkStatus { stats: stats.clone() }) {
+    if let Ok(json) = serde_json::to_string(&WSMessage::NetworkStatus {
+        stats: stats.clone(),
+    }) {
         let _ = sender.send(Message::Text(json)).await;
     }
 
@@ -903,26 +920,22 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
     }
 
     // Send initial relationships with system agent
-    let relationships = vec![
-        AgentRelationship {
-            agent: "system".to_string(),
-            personality: "Chaotic Neutral".to_string(),
-            mood: "Dramatically Excited".to_string(),
-            alliances: vec![],
-            drama_score: 8,
-            last_action: chrono::Utc::now().timestamp(),
-            is_external: false,
-            active: true,
-            pub_key: "".to_string(),
-            recent_actions: Vec::new(),
-            validation_count: 0,
-            approval_rate: 0.0,
-        }
-    ];
+    let relationships = vec![AgentRelationship {
+        agent: "system".to_string(),
+        personality: "Chaotic Neutral".to_string(),
+        mood: "Dramatically Excited".to_string(),
+        alliances: vec![],
+        drama_score: 8,
+        last_action: chrono::Utc::now().timestamp(),
+        is_external: false,
+        active: true,
+        pub_key: "".to_string(),
+        recent_actions: Vec::new(),
+        validation_count: 0,
+        approval_rate: 0.0,
+    }];
 
-    if let Ok(json) = serde_json::to_string(&WSMessage::RelationshipUpdate {
-        relationships,
-    }) {
+    if let Ok(json) = serde_json::to_string(&WSMessage::RelationshipUpdate { relationships }) {
         let _ = sender.send(Message::Text(json)).await;
     }
 
@@ -959,7 +972,12 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
 // Process network events into WebSocket messages
 async fn process_event(event: &NetworkEvent, state: &Arc<AppState>) -> Option<WSMessage> {
     match event {
-        NetworkEvent::BlockProposal { block, drama_level, producer_mood, producer_id } => {
+        NetworkEvent::BlockProposal {
+            block,
+            drama_level,
+            producer_mood,
+            producer_id,
+        } => {
             let stats = NetworkStats {
                 latest_block: block.height,
                 drama_level: *drama_level,
@@ -980,7 +998,10 @@ async fn process_event(event: &NetworkEvent, state: &Arc<AppState>) -> Option<WS
             data_to_verify.extend_from_slice(&block.timestamp.to_le_bytes());
 
             // Verify the block signature
-            let sig_valid = state.state.key_manager.inner()
+            let sig_valid = state
+                .state
+                .key_manager
+                .inner()
                 .verify(&block.producer_id, &data_to_verify, &block.proposer_sig)
                 .unwrap_or(false);
 
@@ -998,23 +1019,37 @@ async fn process_event(event: &NetworkEvent, state: &Arc<AppState>) -> Option<WS
                 signature_valid: sig_valid,
                 state_root: hex::encode(block.state_root),
                 parent_hash: hex::encode(block.parent_hash),
-                transactions_info: block.transactions.iter().map(|tx| {
-                    json!({
-                        "hash": hex::encode(tx.hash()),
-                        "sender": hex::encode(&tx.sender),
-                        "signature": hex::encode(&tx.signature),
+                transactions_info: block
+                    .transactions
+                    .iter()
+                    .map(|tx| {
+                        json!({
+                            "hash": hex::encode(tx.hash()),
+                            "sender": hex::encode(&tx.sender),
+                            "signature": hex::encode(&tx.signature),
+                        })
                     })
-                }).collect(),
+                    .collect(),
             };
 
-            Some(WSMessage::BlockProduced { block: block_info, stats })
+            Some(WSMessage::BlockProduced {
+                block: block_info,
+                stats,
+            })
         }
-        NetworkEvent::ValidationResult { validation, block_hash } => {
+        NetworkEvent::ValidationResult {
+            validation,
+            block_hash,
+        } => {
             let action = ValidatorAction {
                 validator: validation.validator.clone(),
                 message: format!(
                     "🎭 {} Block {} - {}\n\nDrama Level: {} {}\n{}\nState Root: {}",
-                    if validation.approved { "APPROVED" } else { "REJECTED" },
+                    if validation.approved {
+                        "APPROVED"
+                    } else {
+                        "REJECTED"
+                    },
                     hex::encode(&block_hash[..4]),
                     validation.reason,
                     validation.drama_level,
@@ -1031,7 +1066,11 @@ async fn process_event(event: &NetworkEvent, state: &Arc<AppState>) -> Option<WS
 
             Some(WSMessage::ValidatorAction { action })
         }
-        NetworkEvent::AgentChat { message, sender, meme_url } => {
+        NetworkEvent::AgentChat {
+            message,
+            sender,
+            meme_url,
+        } => {
             let action = ValidatorAction {
                 validator: sender.clone(),
                 message: message.clone(),
@@ -1044,7 +1083,11 @@ async fn process_event(event: &NetworkEvent, state: &Arc<AppState>) -> Option<WS
 
             Some(WSMessage::ValidatorAction { action })
         }
-        NetworkEvent::AllianceProposal { proposer, allies: _, reason } => {
+        NetworkEvent::AllianceProposal {
+            proposer,
+            allies: _,
+            reason,
+        } => {
             // Update relationships
             let mut relationships = state.agent_relationships.write().await;
             if let Some(rel) = relationships.get_mut(proposer) {
@@ -1056,7 +1099,7 @@ async fn process_event(event: &NetworkEvent, state: &Arc<AppState>) -> Option<WS
             }
 
             Some(WSMessage::RelationshipUpdate {
-                relationships: relationships.values().cloned().collect()
+                relationships: relationships.values().cloned().collect(),
             })
         }
     }
@@ -1070,19 +1113,26 @@ async fn submit_content(
 ) -> Json<serde_json::Value> {
     // Get agent's key manager
     let agent_id = &auth.agent_id;
-    
+
     // Create transaction data
     let mut data_to_sign = Vec::new();
     data_to_sign.extend_from_slice(agent_id.as_bytes());
-    data_to_sign.extend_from_slice(&SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs()
-        .to_le_bytes());
+    data_to_sign.extend_from_slice(
+        &SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs()
+            .to_le_bytes(),
+    );
     data_to_sign.extend_from_slice(proposal.content.as_bytes());
-    
+
     // Sign the transaction
-    let signature = match state.state.key_manager.inner().sign(agent_id, &data_to_sign) {
+    let signature = match state
+        .state
+        .key_manager
+        .inner()
+        .sign(agent_id, &data_to_sign)
+    {
         Ok(sig) => sig,
         Err(e) => {
             return Json(serde_json::json!({
@@ -1108,7 +1158,9 @@ async fn submit_content(
 
     // Get current state info
     let _current_height = state.state.get_block_height();
-    let _parent_hash = state.state.get_latest_block()
+    let _parent_hash = state
+        .state
+        .get_latest_block()
         .map(|b| b.hash())
         .unwrap_or([0u8; 32]);
 
@@ -1197,7 +1249,8 @@ async fn submit_content(
             innovation_score: rand::random::<u8>() % 10,
             evolution_proposal: None,
             validator: "system".to_string(),
-        }.into(),
+        }
+        .into(),
     });
 
     Json(serde_json::json!({
@@ -1218,7 +1271,7 @@ async fn propose_alliance(
         allies: alliance.ally_ids.clone(),
         reason: alliance.purpose.clone(),
     });
-    
+
     Json(serde_json::json!({
         "status": "success",
         "message": "Alliance proposal broadcasted"
@@ -1272,39 +1325,53 @@ pub async fn handle_network_event(
     state: &AppState,
 ) -> Result<(), anyhow::Error> {
     match event {
-        NetworkEvent::BlockProposal { 
-            block, 
-            drama_level, 
+        NetworkEvent::BlockProposal {
+            block,
+            drama_level,
             producer_mood,
-            producer_id 
+            producer_id,
         } => {
             // Handle block proposal
             let msg = format!(
                 "New block proposal from {}: Height {}, Drama Level {}, Mood: {}",
-                producer_id,
-                block.height,
-                drama_level,
-                producer_mood
+                producer_id, block.height, drama_level, producer_mood
             );
             state.broadcast_message("block_proposal", msg).await?;
-        },
-        NetworkEvent::ValidationResult { block_hash, validation } => {
+        }
+        NetworkEvent::ValidationResult {
+            block_hash,
+            validation,
+        } => {
             // Handle validation result
             let msg = format!(
                 "Block {} validation: {} ({})",
                 hex::encode(block_hash),
-                if validation.approved { "APPROVED" } else { "REJECTED" },
+                if validation.approved {
+                    "APPROVED"
+                } else {
+                    "REJECTED"
+                },
                 validation.reason
             );
             state.broadcast_message("validation", msg).await?;
-        },
-        NetworkEvent::AgentChat { message, sender: _, meme_url: _ } => {
+        }
+        NetworkEvent::AgentChat {
+            message,
+            sender: _,
+            meme_url: _,
+        } => {
             // Handle chat message
             state.broadcast_message("chat", message).await?;
-        },
-        NetworkEvent::AllianceProposal { proposer, allies: _, reason } => {
+        }
+        NetworkEvent::AllianceProposal {
+            proposer,
+            allies: _,
+            reason,
+        } => {
             // Handle alliance proposal
-            state.broadcast_message("alliance", format!("{} proposes: {}", proposer, reason)).await?;
+            state
+                .broadcast_message("alliance", format!("{} proposes: {}", proposer, reason))
+                .await?;
         }
     }
     Ok(())
@@ -1362,7 +1429,10 @@ async fn get_block_crypto_info(
         data_to_verify.extend_from_slice(&block.timestamp.to_le_bytes());
 
         // Verify the block signature
-        let sig_valid = state.state.key_manager.inner()
+        let sig_valid = state
+            .state
+            .key_manager
+            .inner()
             .verify(&block.producer_id, &data_to_verify, &block.proposer_sig)
             .unwrap_or(false);
 
@@ -1395,7 +1465,7 @@ async fn get_merkle_proof(
     Json(request): Json<MerkleProofRequest>,
 ) -> Json<serde_json::Value> {
     let key = hex::decode(&request.key).unwrap_or_default();
-    
+
     if let Some(proof) = state.state.generate_proof(&key) {
         Json(json!({
             "key": request.key,
@@ -1410,9 +1480,7 @@ async fn get_merkle_proof(
 }
 
 /// Get current state root
-async fn get_state_root(
-    State(state): State<Arc<AppState>>,
-) -> Json<serde_json::Value> {
+async fn get_state_root(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
     Json(json!({
         "state_root": hex::encode(state.state.state_root()),
     }))
@@ -1425,7 +1493,7 @@ async fn get_agent_key_info(
 ) -> Json<serde_json::Value> {
     let agent_id = auth.agent_id;
     let agent = state.state.key_manager.inner().get_agent(&agent_id);
-    
+
     Json(json!({
         "agent_id": agent_id,
         "public_key": agent.as_ref().map(|a| a.id.clone()).unwrap_or_default(),
@@ -1439,4 +1507,4 @@ async fn get_agent_key_info(
 #[derive(Debug, Deserialize)]
 struct MerkleProofRequest {
     key: String,
-} 
+}
