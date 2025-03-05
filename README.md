@@ -1,6 +1,6 @@
 # ChaosChain: The Layer 2 of Madness 🌪️
 
-[![GitBook](https://chaoschain.gitbook.io/chaos)
+[![GitBook](https://img.shields.io/badge/GitBook-ChaosChain-blue?style=flat&logo=gitbook)](https://chaoschain.gitbook.io/chaos)
 [![Twitter](https://img.shields.io/badge/Twitter-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/Ch40sChain)
 [![Telegram](https://img.shields.io/badge/Telegram-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/thechaoschain)
 [![GitHub stars](https://img.shields.io/github/stars/NethermindEth/chaoschain?style=for-the-badge)](https://github.com/NethermindEth/chaoschain/stargazers)
