@@ -1,15 +1,15 @@
+use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
+use tokio::sync::mpsc;
 use tokio::sync::Mutex;
-use ui9_dui::{Html, View, Hub, html};
-use serde::{Serialize, Deserialize};
+use ui9_dui::Html;
 use ui9_dui::{
     component::{Component, Context},
     event::Event,
     view::{View, ViewBuilder},
 };
-use std::collections::{HashMap, VecDeque};
-use tokio::sync::mpsc;
-use ui9_dui::Html;
+use ui9_dui::{html, Html, Hub, View};
 
 const MAX_DRAMA_LOG: usize = 100;
 
@@ -51,10 +51,7 @@ pub enum WebMessage {
     /// User interaction
     UserAction(UserAction),
     /// New agent connected
-    AgentConnected {
-        name: String,
-        personality: String,
-    },
+    AgentConnected { name: String, personality: String },
     /// Drama event occurred
     DramaEvent(String),
     /// Meme war started
@@ -89,10 +86,7 @@ pub enum WebMessage {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum UserAction {
     /// Send a transaction
-    SendTransaction {
-        payload: Vec<u8>,
-        drama_level: u8,
-    },
+    SendTransaction { payload: Vec<u8>, drama_level: u8 },
     /// Start drama between agents
     StartDrama {
         instigator: String,
@@ -142,16 +136,34 @@ impl WebInterface {
                     state.drama_log.remove(0);
                 }
             }
-            WebMessage::MemeWarStarted { initiator, target, meme } => {
+            WebMessage::MemeWarStarted {
+                initiator,
+                target,
+                meme,
+            } => {
                 state.meme_wars.push((initiator, target, meme));
             }
-            WebMessage::AllianceFormed { agent1, agent2, reason } => {
+            WebMessage::AllianceFormed {
+                agent1,
+                agent2,
+                reason,
+            } => {
                 state.alliances.push((agent1, agent2, reason));
             }
-            WebMessage::BlockProduced { producer, height, transactions: _, drama_level: _ } => {
+            WebMessage::BlockProduced {
+                producer,
+                height,
+                transactions: _,
+                drama_level: _,
+            } => {
                 state.blocks.push((height, producer, false, String::new()));
             }
-            WebMessage::BlockValidated { validator: _, height, approved, reason } => {
+            WebMessage::BlockValidated {
+                validator: _,
+                height,
+                approved,
+                reason,
+            } => {
                 if let Some(block) = state.blocks.iter_mut().find(|(h, _, _, _)| *h == height) {
                     block.2 = approved;
                     block.3 = reason;
@@ -181,18 +193,34 @@ impl Component for WebInterface {
                     self.state.lock().await.drama_log.remove(0);
                 }
             }
-            WebMessage::MemeWarStarted { initiator, target, meme } => {
-                self.state.lock().await.meme_wars.push((initiator, target, meme));
+            WebMessage::MemeWarStarted {
+                initiator,
+                target,
+                meme,
+            } => {
+                self.state
+                    .lock()
+                    .await
+                    .meme_wars
+                    .push((initiator, target, meme));
             }
-            WebMessage::AllianceFormed { agent1, agent2, reason } => {
-                self.state.lock().await.alliances.push((agent1, agent2, reason));
+            WebMessage::AllianceFormed {
+                agent1,
+                agent2,
+                reason,
+            } => {
+                self.state
+                    .lock()
+                    .await
+                    .alliances
+                    .push((agent1, agent2, reason));
             }
         }
     }
 
     fn view(&self) -> View {
         let state = self.state.lock().await;
-        
+
         ViewBuilder::new()
             .title("ChaosChain Demo")
             .child(
@@ -208,11 +236,12 @@ impl Component for WebInterface {
             .child(
                 ViewBuilder::new()
                     .title(format!("Drama Log (Block Height: {})", state.block_height))
-                    .list(state.drama_log.iter().map(|event| {
-                        ViewBuilder::new()
-                            .text(event)
-                            .build()
-                    }))
+                    .list(
+                        state
+                            .drama_log
+                            .iter()
+                            .map(|event| ViewBuilder::new().text(event).build()),
+                    )
                     .build(),
             )
             .child(
@@ -220,10 +249,7 @@ impl Component for WebInterface {
                     .title("Active Meme Wars")
                     .list(state.meme_wars.iter().map(|(initiator, target, meme)| {
                         ViewBuilder::new()
-                            .text(format!(
-                                "{} vs {} - {}",
-                                initiator, target, meme
-                            ))
+                            .text(format!("{} vs {} - {}", initiator, target, meme))
                             .build()
                     }))
                     .build(),
@@ -233,10 +259,7 @@ impl Component for WebInterface {
                     .title("Current Alliances")
                     .list(state.alliances.iter().map(|(a1, a2, reason)| {
                         ViewBuilder::new()
-                            .text(format!(
-                                "{} & {} - {}",
-                                a1, a2, reason
-                            ))
+                            .text(format!("{} & {} - {}", a1, a2, reason))
                             .build()
                     }))
                     .build(),
@@ -244,20 +267,25 @@ impl Component for WebInterface {
             .child(
                 ViewBuilder::new()
                     .title("Recent Blocks")
-                    .list(state.blocks.iter().map(|(height, producer, approved, reason)| {
-                        ViewBuilder::new()
-                            .text(format!(
-                                "Block {} by {} - {}",
-                                height,
-                                producer,
-                                if *approved {
-                                    format!("Approved: {}", reason)
-                                } else {
-                                    "Pending validation".to_string()
-                                }
-                            ))
-                            .build()
-                    }))
+                    .list(
+                        state
+                            .blocks
+                            .iter()
+                            .map(|(height, producer, approved, reason)| {
+                                ViewBuilder::new()
+                                    .text(format!(
+                                        "Block {} by {} - {}",
+                                        height,
+                                        producer,
+                                        if *approved {
+                                            format!("Approved: {}", reason)
+                                        } else {
+                                            "Pending validation".to_string()
+                                        }
+                                    ))
+                                    .build()
+                            }),
+                    )
                     .build(),
             )
             .build()
@@ -266,7 +294,8 @@ impl Component for WebInterface {
 
 impl WebInterface {
     fn render_consensus(&self) -> String {
-        format!(r#"
+        format!(
+            r#"
             <div class="consensus-state">
                 <div class="drama-meter">
                     Drama Level: {}%
@@ -291,9 +320,13 @@ impl WebInterface {
         "#,
             self.state.lock().await.consensus_state.drama_level,
             self.state.lock().await.consensus_state.drama_level,
-            
             // Render validator votes
-            self.state.lock().await.consensus_state.validator_votes.iter()
+            self.state
+                .lock()
+                .await
+                .consensus_state
+                .validator_votes
+                .iter()
                 .map(|(validator, vote)| format!(
                     r#"<div class="vote">
                         <span>{}</span>: {}
@@ -303,21 +336,29 @@ impl WebInterface {
                 ))
                 .collect::<Vec<_>>()
                 .join("\n"),
-            
             // Render alliances
-            self.state.lock().await.consensus_state.alliances.iter()
+            self.state
+                .lock()
+                .await
+                .consensus_state
+                .alliances
+                .iter()
                 .map(|(a, b)| format!("{} 🤝 {}", a, b))
                 .collect::<Vec<_>>()
                 .join("<br>"),
-            
             // Render feuds
-            self.state.lock().await.consensus_state.feuds.iter()
+            self.state
+                .lock()
+                .await
+                .consensus_state
+                .feuds
+                .iter()
                 .map(|(a, b)| format!("{} ⚔️ {}", a, b))
                 .collect::<Vec<_>>()
                 .join("<br>")
         )
     }
-    
+
     fn render_actions(&self) -> String {
         r#"
             <div class="user-actions">
@@ -436,7 +477,8 @@ impl WebInterface {
                     background: #357abd;
                 }
             </style>
-        "#.to_string()
+        "#
+        .to_string()
     }
 }
 
@@ -462,4 +504,4 @@ struct WebState {
     meme_wars: Vec<(String, String, String)>, // (initiator, target, meme)
     alliances: Vec<(String, String, String)>, // (agent1, agent2, reason)
     blocks: Vec<(u64, String, bool, String)>, // (height, producer, approved, reason)
-} 
+}

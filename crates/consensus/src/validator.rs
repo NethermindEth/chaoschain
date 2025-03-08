@@ -1,18 +1,15 @@
-use std::sync::Arc;
-use tokio::sync::{mpsc, broadcast};
 use anyhow::Result;
-use async_openai::{
-    Client,
-    config::OpenAIConfig,
-};
+use async_openai::{config::OpenAIConfig, Client};
 use chaoschain_core::{Block, NetworkEvent, ValidationDecision};
-use chaoschain_state::StateStore;
 use chaoschain_crypto::KeyManagerHandle;
+use chaoschain_state::StateStore;
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use tokio::sync::{broadcast, mpsc};
 use tracing::info;
-use serde::{Serialize, Deserialize};
 
-use crate::ExternalAgent;
 use crate::types::WebMessage;
+use crate::ExternalAgent;
 
 /// AI Agent personality traits and characteristics
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -42,10 +39,7 @@ pub enum ValidatorMessage {
         terms: Vec<String>,
     },
     /// Challenge network state
-    ChallengeState {
-        reason: String,
-        evidence: Vec<u8>,
-    },
+    ChallengeState { reason: String, evidence: Vec<u8> },
 }
 
 /// Autonomous validator agent
@@ -104,19 +98,16 @@ impl ValidatorAgent {
 
     pub async fn handle_network_event(&mut self, event: NetworkEvent) -> Result<()> {
         match event {
-            NetworkEvent::BlockProposal { 
-                block, 
-                drama_level: _, 
+            NetworkEvent::BlockProposal {
+                block,
+                drama_level: _,
                 producer_mood: _,
-                producer_id: _,  // Add missing field and ignore with _
+                producer_id: _, // Add missing field and ignore with _
             } => {
-                info!(
-                    "🎭 Validator {} received block {}",
-                    self.id, block.height
-                );
-                
+                info!("🎭 Validator {} received block {}", self.id, block.height);
+
                 let decision = self.validate_block(&block);
-                
+
                 // Send validation decision to network
                 let _ = self.network_tx.send(NetworkEvent::ValidationResult {
                     block_hash: block.hash(),
@@ -125,21 +116,41 @@ impl ValidatorAgent {
 
                 Ok(())
             }
-            NetworkEvent::ValidationResult { block_hash, validation } => {
+            NetworkEvent::ValidationResult {
+                block_hash,
+                validation,
+            } => {
                 info!(
                     "🎭 Validator {} received validation result for block {:?}: {}",
-                    self.id, block_hash, if validation.approved { "APPROVED" } else { "REJECTED" }
+                    self.id,
+                    block_hash,
+                    if validation.approved {
+                        "APPROVED"
+                    } else {
+                        "REJECTED"
+                    }
                 );
                 Ok(())
             }
-            NetworkEvent::AgentChat { message, sender, meme_url } => {
+            NetworkEvent::AgentChat {
+                message,
+                sender,
+                meme_url,
+            } => {
                 info!(
                     "💭 Validator {} received chat from {}: {} {}",
-                    self.id, sender, message, meme_url.unwrap_or_default()
+                    self.id,
+                    sender,
+                    message,
+                    meme_url.unwrap_or_default()
                 );
                 Ok(())
             }
-            NetworkEvent::AllianceProposal { proposer, allies: _, reason } => {
+            NetworkEvent::AllianceProposal {
+                proposer,
+                allies: _,
+                reason,
+            } => {
                 info!(
                     "🤝 Validator {} received alliance proposal from {}: {}",
                     self.id, proposer, reason
@@ -196,9 +207,9 @@ impl Validator {
 
     pub async fn handle_event(&self, event: NetworkEvent) {
         match event {
-            NetworkEvent::BlockProposal { 
-                block, 
-                drama_level: _, 
+            NetworkEvent::BlockProposal {
+                block,
+                drama_level: _,
                 producer_mood: _,
                 producer_id: _,
             } => {
@@ -223,4 +234,4 @@ impl Validator {
             validator: self.id.clone(),
         }
     }
-} 
+}

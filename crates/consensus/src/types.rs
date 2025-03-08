@@ -1,6 +1,6 @@
-use std::collections::HashMap;
-use serde::{Serialize, Deserialize};
 use chaoschain_core::ValidationDecision;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fmt;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -38,7 +38,11 @@ pub struct ValidationResult {
 
 impl fmt::Display for ValidationResult {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Validator {} decided: {:?}", self.validator, self.decision)
+        write!(
+            f,
+            "Validator {} decided: {:?}",
+            self.validator, self.decision
+        )
     }
 }
 
@@ -152,4 +156,4 @@ pub struct InformationVerification {
 pub struct WebMessage {
     pub message_type: String,
     pub data: serde_json::Value,
-} 
+}

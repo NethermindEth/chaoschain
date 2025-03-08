@@ -6,15 +6,15 @@ authors = ["ChaosChain Contributors"]
 
 [dependencies]
 # Cryptography
-ed25519-dalek = { workspace = true }
-rand = { workspace = true }
+ed25519-dalek.workspace = true
+rand.workspace = true
 
 # Serialization
-serde = { workspace = true }
-hex = { workspace = true }
+serde.workspace = true
+hex.workspace = true
 
 # Error handling
-thiserror = { workspace = true }
+thiserror.workspace = true
 
 # Concurrency
 parking_lot = "0.12" 

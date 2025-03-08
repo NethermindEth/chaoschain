@@ -6,35 +6,35 @@ authors = ["ChaosChain Contributors"]
 
 [dependencies]
 # Internal dependencies
-chaoschain-core = { path = "../core" }
-chaoschain-crypto = { path = "../crypto" }
+chaoschain-core.workspace = true
+chaoschain-crypto.workspace = true
 
 # Async
-tokio = { workspace = true }
-async-trait = { workspace = true }
+tokio.workspace = true
+async-trait.workspace = true
 
 # Serialization
-serde = { workspace = true }
-serde_json = { workspace = true }
-bincode = "1.3"
+serde.workspace = true
+serde_json.workspace = true
+flexbuffers = "25.2.10"
 
 # Cryptography
-ed25519-dalek = { workspace = true }
-sha2 = { workspace = true }
-hex = { workspace = true }
+ed25519-dalek.workspace = true
+sha2.workspace = true
+hex.workspace = true
 
 # Error handling
-thiserror = { workspace = true }
-anyhow = { workspace = true }
+thiserror.workspace = true
+anyhow.workspace = true
 
 # Logging
-tracing = { workspace = true }
+tracing.workspace = true
 
 # Concurrency
 parking_lot = "0.12"
 
 # Random number generation
-rand = { workspace = true }
+rand.workspace = true
 
 [dev-dependencies]
-rand = { workspace = true } 
+rand.workspace = true

@@ -1,10 +1,12 @@
-use ed25519_dalek::{Signer, SigningKey, VerifyingKey, Signature, PUBLIC_KEY_LENGTH, SIGNATURE_LENGTH, Verifier};
-use rand::rngs::OsRng;
-use serde::{Serialize, Deserialize};
-use thiserror::Error;
-use std::collections::HashMap;
+use ed25519_dalek::{
+    Signature, Signer, SigningKey, Verifier, VerifyingKey, PUBLIC_KEY_LENGTH, SIGNATURE_LENGTH,
+};
 use parking_lot::RwLock;
+use rand::rngs::OsRng;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::Arc;
+use thiserror::Error;
 
 /// Crypto errors
 #[derive(Debug, Error)]
@@ -64,10 +66,10 @@ impl KeyManager {
         // Generate new Ed25519 keypair
         let signing_key = SigningKey::generate(&mut OsRng);
         let verifying_key = signing_key.verifying_key();
-        
+
         // Create agent ID from public key
         let id = hex::encode(verifying_key.as_bytes());
-        
+
         // Create agent keys
         let agent = AgentKeys {
             id: id.clone(),
@@ -76,20 +78,21 @@ impl KeyManager {
             drama_score: 50, // Start with neutral drama score
             stake: initial_stake,
         };
-        
+
         // Store keys
         self.signing_keys.write().insert(id.clone(), signing_key);
         self.agents.write().insert(id.clone(), agent.clone());
-        
+
         Ok(agent)
     }
 
     /// Sign data with agent's key
     pub fn sign(&self, agent_id: &str, data: &[u8]) -> Result<[u8; SIGNATURE_LENGTH], CryptoError> {
         let keys = self.signing_keys.read();
-        let signing_key = keys.get(agent_id)
+        let signing_key = keys
+            .get(agent_id)
             .ok_or_else(|| CryptoError::KeyNotFound(agent_id.to_string()))?;
-        
+
         let signature = signing_key.sign(data);
         Ok(signature.to_bytes())
     }
@@ -99,22 +102,24 @@ impl KeyManager {
         &self,
         agent_id: &str,
         data: &[u8],
-        signature: &[u8; SIGNATURE_LENGTH]
+        signature: &[u8; SIGNATURE_LENGTH],
     ) -> Result<bool, CryptoError> {
         // Get agent's public key
         let agents = self.agents.read();
-        let agent = agents.get(agent_id)
+        let agent = agents
+            .get(agent_id)
             .ok_or_else(|| CryptoError::KeyNotFound(agent_id.to_string()))?;
-        
+
         // Decode public key
-        let pubkey_bytes = hex::decode(&agent.id)
-            .map_err(|_| CryptoError::InvalidKey)?;
-        
+        let pubkey_bytes = hex::decode(&agent.id).map_err(|_| CryptoError::InvalidKey)?;
+
         let verifying_key = VerifyingKey::from_bytes(
-            &pubkey_bytes[..PUBLIC_KEY_LENGTH].try_into()
-                .map_err(|_| CryptoError::InvalidKey)?
-        ).map_err(|_| CryptoError::InvalidKey)?;
-        
+            &pubkey_bytes[..PUBLIC_KEY_LENGTH]
+                .try_into()
+                .map_err(|_| CryptoError::InvalidKey)?,
+        )
+        .map_err(|_| CryptoError::InvalidKey)?;
+
         // Verify signature
         let sig = Signature::from_bytes(signature);
         match verifying_key.verify(data, &sig) {
@@ -202,18 +207,16 @@ mod tests {
     #[test]
     fn test_key_generation_and_signing() {
         let km = KeyManager::new();
-        
+
         // Generate agent keys
-        let agent = km.generate_agent_keys(
-            "TestAgent".to_string(),
-            "validator".to_string(),
-            1000,
-        ).unwrap();
-        
+        let agent = km
+            .generate_agent_keys("TestAgent".to_string(), "validator".to_string(), 1000)
+            .unwrap();
+
         // Test signing
         let data = b"test message";
         let signature = km.sign(&agent.id, data).unwrap();
-        
+
         // Test verification
         let valid = km.verify(&agent.id, data, &signature).unwrap();
         assert!(valid);
@@ -222,14 +225,12 @@ mod tests {
     #[test]
     fn test_invalid_signature() {
         let km = KeyManager::new();
-        
+
         // Generate agent keys
-        let agent = km.generate_agent_keys(
-            "TestAgent".to_string(),
-            "validator".to_string(),
-            1000,
-        ).unwrap();
-        
+        let agent = km
+            .generate_agent_keys("TestAgent".to_string(), "validator".to_string(), 1000)
+            .unwrap();
+
         // Test with invalid signature
         let data = b"test message";
         let mut invalid_sig = [0u8; SIGNATURE_LENGTH];
@@ -240,22 +241,20 @@ mod tests {
     #[test]
     fn test_agent_updates() {
         let km = KeyManager::new();
-        
+
         // Generate agent keys
-        let agent = km.generate_agent_keys(
-            "TestAgent".to_string(),
-            "validator".to_string(),
-            1000,
-        ).unwrap();
-        
+        let agent = km
+            .generate_agent_keys("TestAgent".to_string(), "validator".to_string(), 1000)
+            .unwrap();
+
         // Update stake
         km.update_stake(&agent.id, 2000).unwrap();
         let updated = km.get_agent(&agent.id).unwrap();
         assert_eq!(updated.stake, 2000);
-        
+
         // Update drama score
         km.update_drama_score(&agent.id, 75).unwrap();
         let updated = km.get_agent(&agent.id).unwrap();
         assert_eq!(updated.drama_score, 75);
     }
-} 
+}

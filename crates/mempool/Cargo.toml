@@ -4,10 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-chaoschain-core = { path = "../core" }
-tokio = { workspace = true }
-tracing = { workspace = true }
-anyhow = { workspace = true }
+chaoschain-core.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+anyhow.workspace = true
 serde = { version = "1.0", features = ["derive"] }
 rand = "0.8"
 hex = "0.4"

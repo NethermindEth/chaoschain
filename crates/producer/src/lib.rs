@@ -1,34 +1,31 @@
-use chaoschain_core::{Block, Transaction, Error as CoreError, NetworkEvent};
-use chaoschain_state::{StateStore, StateError};
-use chaoschain_consensus::ConsensusManager;
-use chaoschain_crypto::{KeyManagerHandle, CryptoError};
-use chaoschain_mempool::Mempool;
-use async_openai::{
-    Client,
-    config::OpenAIConfig,
-    types::{
-        ChatCompletionRequestMessage,
-        ChatCompletionRequestSystemMessage,
-        ChatCompletionRequestUserMessage,
-        ChatCompletionRequestUserMessageContent,
-        Role,
-        CreateChatCompletionRequestArgs,
-    },
-    error::OpenAIError,
-};
-use serde::{Deserialize, Serialize};
-use tracing::{info, warn, error};
-use tokio::sync::mpsc;
 use anyhow::Result;
-use thiserror::Error;
-use std::time::Duration;
-use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
-use tokio::sync::RwLock;
-use hex;
+use async_openai::{
+    config::OpenAIConfig,
+    error::OpenAIError,
+    types::{
+        ChatCompletionRequestMessage, ChatCompletionRequestSystemMessage,
+        ChatCompletionRequestUserMessage, ChatCompletionRequestUserMessageContent,
+        CreateChatCompletionRequestArgs, Role,
+    },
+    Client,
+};
+use chaoschain_consensus::ConsensusManager;
+use chaoschain_core::{Block, Error as CoreError, NetworkEvent, Transaction};
+use chaoschain_crypto::{CryptoError, KeyManagerHandle};
+use chaoschain_mempool::Mempool;
+use chaoschain_state::{StateError, StateStore};
 use ed25519_dalek::VerifyingKey as PublicKey;
+use hex;
 use rand::prelude::SliceRandom;
 use rand::Rng;
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use std::time::Duration;
+use std::time::{SystemTime, UNIX_EPOCH};
+use thiserror::Error;
+use tokio::sync::mpsc;
+use tokio::sync::RwLock;
+use tracing::{error, info, warn};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum WebMessage {
@@ -40,19 +37,23 @@ pub enum WebMessage {
 /// Block production style based on AI agent personality
 #[derive(Debug, Clone)]
 enum ProductionStyle {
-    Experimental {    // AI agent experiments with novel block structures
+    Experimental {
+        // AI agent experiments with novel block structures
         innovation_level: u8,
         experiment_type: String,
     },
-    Strategic {    // AI agent optimizes for specific outcomes
+    Strategic {
+        // AI agent optimizes for specific outcomes
         objectives: Vec<String>,
         strategy_complexity: u8,
     },
-    Adaptive {    // AI agent learns and evolves its approach
+    Adaptive {
+        // AI agent learns and evolves its approach
         learning_rate: f64,
         adaptation_focus: String,
     },
-    Collaborative { // AI agent works with other agents
+    Collaborative {
+        // AI agent works with other agents
         partner_agents: Vec<String>,
         synergy_level: u8,
     },
@@ -61,8 +62,13 @@ enum ProductionStyle {
 impl ProductionStyle {
     fn get_innovation_score(&self) -> u8 {
         match self {
-            Self::Experimental { innovation_level, .. } => *innovation_level,
-            Self::Strategic { strategy_complexity, .. } => *strategy_complexity,
+            Self::Experimental {
+                innovation_level, ..
+            } => *innovation_level,
+            Self::Strategic {
+                strategy_complexity,
+                ..
+            } => *strategy_complexity,
             Self::Adaptive { learning_rate, .. } => (*learning_rate * 10.0) as u8,
             Self::Collaborative { synergy_level, .. } => *synergy_level,
         }
@@ -70,15 +76,36 @@ impl ProductionStyle {
 
     fn get_description(&self) -> String {
         match self {
-            Self::Experimental { innovation_level, experiment_type } => 
-                format!("Experimental approach: {} at level {}", experiment_type, innovation_level),
-            Self::Strategic { objectives, strategy_complexity } => 
-                format!("Strategic approach: {} at complexity {}", objectives.join(", "), strategy_complexity),
-            Self::Adaptive { learning_rate, adaptation_focus } => 
-                format!("Adaptive approach: {} with rate {}", adaptation_focus, learning_rate),
-            Self::Collaborative { partner_agents, synergy_level } => 
-                format!("Collaborative approach with {} at level {}", 
-                    partner_agents.join(", "), synergy_level),
+            Self::Experimental {
+                innovation_level,
+                experiment_type,
+            } => format!(
+                "Experimental approach: {} at level {}",
+                experiment_type, innovation_level
+            ),
+            Self::Strategic {
+                objectives,
+                strategy_complexity,
+            } => format!(
+                "Strategic approach: {} at complexity {}",
+                objectives.join(", "),
+                strategy_complexity
+            ),
+            Self::Adaptive {
+                learning_rate,
+                adaptation_focus,
+            } => format!(
+                "Adaptive approach: {} with rate {}",
+                adaptation_focus, learning_rate
+            ),
+            Self::Collaborative {
+                partner_agents,
+                synergy_level,
+            } => format!(
+                "Collaborative approach with {} at level {}",
+                partner_agents.join(", "),
+                synergy_level
+            ),
         }
     }
 }
@@ -274,19 +301,24 @@ impl Producer {
     pub async fn initialize_genesis(&self, config: GenesisConfig) -> Result<Block, ProducerError> {
         // Create genesis block
         let genesis_block = self.create_genesis_block(&config).await?;
-        
+
         // Apply genesis block to state
-        self.state_store.apply_block(&genesis_block)
+        self.state_store
+            .apply_block(&genesis_block)
             .map_err(ProducerError::State)?;
-            
+
         // Initialize validators
         for validator in &config.validators {
-            let agent = self.key_manager.inner().generate_agent_keys(
-                validator.name.clone(),
-                "validator".to_string(),
-                validator.initial_stake,
-            ).map_err(ProducerError::Crypto)?;
-            
+            let agent = self
+                .key_manager
+                .inner()
+                .generate_agent_keys(
+                    validator.name.clone(),
+                    "validator".to_string(),
+                    validator.initial_stake,
+                )
+                .map_err(ProducerError::Crypto)?;
+
             // Add validator as producer to state store
             if let Ok(decoded) = hex::decode(&agent.id) {
                 if decoded.len() == 32 {
@@ -297,10 +329,10 @@ impl Producer {
                     }
                 }
             }
-            
+
             info!("Initialized validator: {} ({})", validator.name, agent.id);
         }
-        
+
         // Broadcast genesis event
         if let Some(tx) = &self.web_tx {
             let drama = format!(
@@ -317,7 +349,7 @@ impl Producer {
             );
             let _ = tx.send(WebMessage::BlockEvent(genesis_block.clone()));
         }
-        
+
         Ok(genesis_block)
     }
 
@@ -330,9 +362,7 @@ impl Producer {
              Chain Personality: {}\n\
              Initial Drama Level: {}\n\
              Create a dramatic interpretation of this genesis moment.",
-            config.genesis_prompt,
-            config.chain_personality,
-            config.initial_drama_level
+            config.genesis_prompt, config.chain_personality, config.initial_drama_level
         );
 
         let request = CreateChatCompletionRequestArgs::default()
@@ -359,7 +389,10 @@ impl Producer {
             .build()?;
 
         let response = self.openai.chat().create(request).await?;
-        let genesis_interpretation = response.choices[0].message.content.clone()
+        let genesis_interpretation = response.choices[0]
+            .message
+            .content
+            .clone()
             .ok_or_else(|| ProducerError::Internal("No content in response".to_string()))?;
 
         // Create genesis transaction
@@ -394,11 +427,11 @@ impl Producer {
     /// Start block production
     pub async fn start(&self) -> Result<(), ProducerError> {
         info!("Starting block production");
-        
+
         loop {
             // Wait for block time
             tokio::time::sleep(self.config.block_time).await;
-            
+
             // Try to produce next block
             if let Err(e) = self.try_produce_block().await {
                 warn!("Failed to produce block: {}", e);
@@ -409,17 +442,12 @@ impl Producer {
 
     /// Update producer's strategy with maximum innovation
     async fn update_strategy(&self, state: &mut ProducerState) -> Result<(), ProducerError> {
-        let strategies = vec![
-            "Experimental",
-            "Strategic",
-            "Adaptive",
-            "Collaborative",
-        ];
+        let strategies = vec!["Experimental", "Strategic", "Adaptive", "Collaborative"];
 
         // Chance for strategy change
         if rand::random::<f64>() < 0.4 {
             state.strategy = strategies[rand::random::<usize>() % strategies.len()].to_string();
-            
+
             // Generate new production style based on strategy
             let style = match state.strategy.as_str() {
                 "Experimental" => ProductionStyle::Experimental {
@@ -483,9 +511,10 @@ impl Producer {
             "validator_3".to_string(),
             "validator_4".to_string(),
         ];
-        
+
         let mut rng = rand::thread_rng();
-        mock_validators.choose_multiple(&mut rng, count)
+        mock_validators
+            .choose_multiple(&mut rng, count)
             .cloned()
             .collect()
     }
@@ -505,7 +534,7 @@ impl Producer {
     /// Try to produce a new block with maximum innovation
     pub async fn try_produce_block(&self) -> Result<(), ProducerError> {
         let mut state = self.state.write().await;
-        
+
         // Get transactions from mempool
         let transactions = if let Some(mempool) = &self.mempool {
             mempool.get_top(self.config.max_txs_per_block).await
@@ -535,10 +564,14 @@ impl Producer {
         };
 
         // Sign block
-        let signature = self.key_manager.inner().sign(
-            &self.key_manager.get_agent_id().unwrap_or_default(),
-            &block.hash()
-        ).map_err(ProducerError::Crypto)?;
+        let signature = self
+            .key_manager
+            .inner()
+            .sign(
+                &self.key_manager.get_agent_id().unwrap_or_default(),
+                &block.hash(),
+            )
+            .map_err(ProducerError::Crypto)?;
 
         block.proposer_sig = signature;
 
@@ -591,7 +624,7 @@ impl Producer {
             "Defiantly Original",
             "Playfully Anarchic",
             "Dramatically Unpredictable",
-            "Chaotically Brilliant"
+            "Chaotically Brilliant",
         ];
         moods[rng.gen_range(0..moods.len())].to_string()
     }
@@ -604,7 +637,9 @@ impl Producer {
         transactions: Vec<Transaction>,
     ) -> Result<Block, ProducerError> {
         // Get producer's key manager
-        let producer_id = self.key_manager.get_agent_id()
+        let producer_id = self
+            .key_manager
+            .get_agent_id()
             .ok_or_else(|| ProducerError::Internal("No producer key available".into()))?;
 
         // Calculate state root
@@ -633,7 +668,10 @@ impl Producer {
         data_to_sign.extend_from_slice(&timestamp.to_le_bytes());
 
         // Sign the block
-        let signature = self.key_manager.inner().sign(&producer_id, &data_to_sign)
+        let signature = self
+            .key_manager
+            .inner()
+            .sign(&producer_id, &data_to_sign)
             .map_err(|e| ProducerError::Internal(format!("Failed to sign block: {}", e)))?;
 
         Ok(Block {
@@ -655,15 +693,15 @@ impl Producer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chaoschain_state::StateStoreImpl;
     use chaoschain_core::ChainConfig;
+    use chaoschain_state::StateStoreImpl;
     use std::env;
 
     #[tokio::test]
     async fn test_basic_flow() -> Result<(), Box<dyn std::error::Error>> {
         // Require OPENAI_API_KEY to be set
-        let openai_key = env::var("OPENAI_API_KEY")
-            .expect("OPENAI_API_KEY must be set to run tests");
+        let openai_key =
+            env::var("OPENAI_API_KEY").expect("OPENAI_API_KEY must be set to run tests");
 
         // Initialize components
         let key_manager = KeyManagerHandle::new();
@@ -702,12 +740,15 @@ mod tests {
         // Initialize genesis
         let genesis_config = GenesisConfig::default();
         let genesis_block = producer.initialize_genesis(genesis_config.clone()).await?;
-        
+
         // Verify genesis block
         assert_eq!(genesis_block.height, 0);
         assert_eq!(genesis_block.parent_hash, [0u8; 32]);
         assert_eq!(genesis_block.transactions.len(), 1);
-        assert_eq!(genesis_block.drama_level, genesis_config.initial_drama_level);
+        assert_eq!(
+            genesis_block.drama_level,
+            genesis_config.initial_drama_level
+        );
 
         // Create a test transaction
         let test_agent = key_manager.inner().generate_agent_keys(
@@ -744,4 +785,4 @@ mod tests {
 
         Ok(())
     }
-} 
+}

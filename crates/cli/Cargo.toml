@@ -6,28 +6,28 @@ authors = ["ChaosChain Contributors"]
 
 [dependencies]
 # Internal dependencies
-chaoschain-core = { path = "../core" }
-chaoschain-state = { path = "../state" }
-chaoschain-consensus = { path = "../consensus" }
-chaoschain-p2p = { path = "../p2p" }
-chaoschain-producer = { path = "../producer" }
-chaoschain-bridge = { path = "../bridge" }
+chaoschain-core.workspace = true
+chaoschain-state.workspace = true
+chaoschain-consensus.workspace = true
+chaoschain-p2p.workspace = true
+chaoschain-producer.workspace = true
+chaoschain-bridge.workspace = true
 
 # CLI
-clap = { workspace = true }
-directories = { workspace = true }
-dotenv = { workspace = true }
+clap.workspace = true
+directories.workspace = true
+dotenv.workspace = true
 
 # Async runtime
-tokio = { workspace = true }
+tokio.workspace = true
 
 # Serialization
-serde = { workspace = true }
-serde_json = { workspace = true }
+serde.workspace = true
+serde_json.workspace = true
 
 # Error handling
-anyhow = { workspace = true }
+anyhow.workspace = true
 
 # Logging
-tracing = { workspace = true }
-tracing-subscriber = { workspace = true } 
+tracing.workspace = true
+tracing-subscriber.workspace = true 

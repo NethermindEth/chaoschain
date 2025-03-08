@@ -6,35 +6,35 @@ authors = ["ChaosChain Contributors"]
 
 [dependencies]
 # Internal dependencies
-chaoschain-core = { path = "../core" }
-chaoschain-state = { path = "../state" }
-chaoschain-consensus = { path = "../consensus" }
-chaoschain-p2p = { path = "../p2p" }
-chaoschain-crypto = { path = "../crypto" }
-chaoschain-mempool = { path = "../mempool" }
+chaoschain-core.workspace = true
+chaoschain-state.workspace = true
+chaoschain-consensus.workspace = true
+chaoschain-p2p.workspace = true
+chaoschain-crypto.workspace = true
+chaoschain-mempool.workspace = true
 
 # Async
-tokio = { workspace = true }
+tokio.workspace = true
 async-trait = "0.1"
 
 # AI
-async-openai = { workspace = true }
+async-openai.workspace = true
 
 # Serialization
-serde = { workspace = true }
-serde_json = { workspace = true }
+serde.workspace = true
+serde_json.workspace = true
 
 # Error handling
-thiserror = { workspace = true }
-anyhow = { workspace = true }
+thiserror.workspace = true
+anyhow.workspace = true
 
 # Cryptography
-ed25519-dalek = { workspace = true }
-blake3 = { workspace = true }
+ed25519-dalek.workspace = true
+blake3.workspace = true
 rand = { version = "0.8", features = ["std"] }
 
 # Logging
-tracing = { workspace = true }
+tracing.workspace = true
 
 # Hex
 hex = "0.4" 

@@ -1,0 +1,34 @@
+[package]
+name = "chaoschain"
+version = "0.1.0"
+edition = "2021"
+authors = ["ChaosChain Contributors"]
+description = "A Layer 2 blockchain where agents make the rules"
+
+[dependencies]
+chaoschain-core.workspace = true
+chaoschain-state.workspace = true
+chaoschain-consensus.workspace = true
+chaoschain-p2p.workspace = true
+chaoschain-producer.workspace = true
+chaoschain-mempool.workspace = true
+chaoschain-bridge.workspace = true
+chaoschain-cli.workspace = true
+chaoschain-crypto.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+axum.workspace = true
+tower-http.workspace = true
+futures.workspace = true
+tokio-stream.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+hex.workspace = true
+chrono.workspace = true
+rand.workspace = true
+async-openai.workspace = true
+ed25519-dalek.workspace = true
+clap.workspace = true
+dotenv.workspace = true
+anyhow.workspace = true

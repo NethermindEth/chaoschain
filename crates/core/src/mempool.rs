@@ -1,9 +1,9 @@
-use crate::{Transaction, Error};
+use crate::{Error, Transaction};
 use parking_lot::RwLock;
-use std::collections::{HashMap, BinaryHeap};
+use sha2::{Digest, Sha256};
 use std::cmp::Ordering;
+use std::collections::{BinaryHeap, HashMap};
 use std::sync::Arc;
-use sha2::{Sha256, Digest};
 
 /// A transaction in the mempool with priority
 #[derive(Debug, Clone)]
@@ -91,8 +91,9 @@ impl Mempool {
     pub fn get_top(&self, n: usize) -> Vec<Transaction> {
         let txs = self.txs.read();
         let queue = self.queue.read();
-        
-        queue.iter()
+
+        queue
+            .iter()
             .take(n)
             .filter(|tx| txs.contains_key(&self.hash_tx(&tx.transaction)))
             .map(|tx| tx.transaction.clone())
@@ -154,4 +155,4 @@ mod tests {
         assert_eq!(top_txs[0].nonce, 2); // Higher priority first
         assert_eq!(top_txs[1].nonce, 1);
     }
-} 
+}

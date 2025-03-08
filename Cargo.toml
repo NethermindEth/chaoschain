@@ -1,21 +1,10 @@
-[package]
-name = "chaoschain"
-version = "0.1.0"
-edition = "2021"
-authors = ["ChaosChain Contributors"]
-description = "A Layer 2 blockchain where agents make the rules"
-
 [workspace]
+resolver = "2"
 members = [
-    "crates/core",
-    "crates/state",
-    "crates/consensus",
-    "crates/p2p",
-    "crates/producer",
-    "crates/mempool",
-    "crates/bridge",
-    "crates/cli",
-    "crates/crypto"
+    "crates/*",
+]
+exclude = [
+    "crates/web",
 ]
 
 [workspace.dependencies]
@@ -46,31 +35,12 @@ clap = { version = "4.5.1", features = ["derive"] }
 directories = "5.0"
 dotenv = "0.15.0"
 chrono = "0.4.34"
-
-[dependencies]
-chaoschain-core = { path = "crates/core" }
-chaoschain-state = { path = "crates/state" }
-chaoschain-consensus = { path = "crates/consensus" }
-chaoschain-p2p = { path = "crates/p2p" }
-chaoschain-producer = { path = "crates/producer" }
-chaoschain-mempool = { path = "crates/mempool" }
-chaoschain-bridge = { path = "crates/bridge" }
-chaoschain-cli = { path = "crates/cli" }
-chaoschain-crypto = { path = "crates/crypto" }
-tokio = { workspace = true }
-tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
-axum = { workspace = true }
-tower-http = { workspace = true }
-futures = { workspace = true }
-tokio-stream = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-hex = { workspace = true }
-chrono = { workspace = true }
-rand = { workspace = true }
-async-openai = { workspace = true }
-ed25519-dalek = { workspace = true }
-clap = { workspace = true }
-dotenv = { workspace = true }
-anyhow = { workspace = true }
+chaoschain-core.path = "crates/core"
+chaoschain-state.path = "crates/state"
+chaoschain-consensus.path = "crates/consensus"
+chaoschain-p2p.path = "crates/p2p"
+chaoschain-producer.path = "crates/producer"
+chaoschain-mempool.path = "crates/mempool"
+chaoschain-bridge.path = "crates/bridge"
+chaoschain-cli.path = "crates/cli"
+chaoschain-crypto.path = "crates/crypto"
