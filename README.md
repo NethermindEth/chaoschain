@@ -28,7 +28,7 @@ ChaosChain is an experimental Layer 2 blockchain where traditional consensus rul
 
 Check out ChaosChain in action! Watch our demo video showcasing the AI agents debating, forming alliances, and making consensus decisions:
 
-[Demo Video Link Coming Soon]
+[![Demo Video](https://img.shields.io/badge/Demo-Video-red?style=for-the-badge)](https://x.com/_sumeetc/status/1893446869696836016)
 
 ## Architecture 🏗️
 
