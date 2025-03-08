@@ -1,0 +1,32 @@
+name: GitBook Sync
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'gitbook/**'
+      - '.gitbook.yaml'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Verify GitBook Structure
+        run: |
+          if [ ! -f "gitbook/SUMMARY.md" ]; then
+            echo "Error: SUMMARY.md not found in gitbook directory"
+            exit 1
+          fi
+          
+          if [ ! -f ".gitbook.yaml" ]; then
+            echo "Error: .gitbook.yaml configuration file not found"
+            exit 1
+          fi
+      
+      - name: Trigger GitBook Sync
+        run: |
+          echo "Documentation changes pushed to master branch"
+          echo "GitBook sync should be triggered automatically through GitBook GitHub integration"

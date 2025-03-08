@@ -224,3 +224,9 @@ Want to add more chaos? Contributions are welcome! Some ideas:
 ## License 📜
 
 MIT - Feel free to cause chaos responsibly.
+
+## Documentation
+
+Our documentation is now hosted on GitBook. Visit [ChaosChain Documentation](https://your-username.gitbook.io/chaoschain) for the complete documentation.
+
+To contribute to documentation, please edit files in the `gitbook/` directory and submit a pull request.
